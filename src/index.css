@@ -1,0 +1,159 @@
+@import "leaflet/dist/leaflet.css";
+
+/* ==========================================================================
+   FloodWatch Kerala - Geospatial Intelligence Design System
+   Visual Identity: Deep Navy / Slate Charcoal, Cyan Accents, Calibrated Risk
+   ========================================================================== */
+
+:root {
+  /* Color Palette - Command Dark */
+  --fw-bg-base: #080C15;
+  --fw-bg-surface: #0E1524;
+  --fw-bg-card: #131C31;
+  --fw-bg-card-hover: #18233D;
+  --fw-bg-elevated: #1D2A47;
+  
+  /* Borders & Dividers */
+  --fw-border-subtle: rgba(255, 255, 255, 0.08);
+  --fw-border-card: rgba(255, 255, 255, 0.12);
+  --fw-border-accent: rgba(6, 182, 212, 0.4);
+  
+  /* Brand & Accents */
+  --fw-cyan: #06B6D4;
+  --fw-cyan-light: #22D3EE;
+  --fw-cyan-dark: #0891B2;
+  --fw-cyan-glow: rgba(6, 182, 212, 0.2);
+  --fw-teal: #14B8A6;
+  --fw-blue: #3B82F6;
+  
+  /* Calibrated Risk States */
+  --fw-risk-low: #38BDF8;
+  --fw-risk-moderate: #F59E0B;
+  --fw-risk-high: #F97316;
+  --fw-risk-severe: #EF4444;
+  --fw-risk-emerald: #10B981;
+  
+  /* Typography Colors */
+  --fw-text-primary: #F8FAFC;
+  --fw-text-secondary: #94A3B8;
+  --fw-text-muted: #64748B;
+  --fw-text-disabled: #475569;
+  
+  /* Typography Family */
+  --fw-font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --fw-font-mono: 'JetBrains Mono', SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  
+  /* Layout Dimensions */
+  --fw-sidebar-width: 280px;
+  --fw-header-height: 64px;
+  --fw-banner-height: 40px;
+  --fw-radius-sm: 6px;
+  --fw-radius-md: 10px;
+  --fw-radius-lg: 14px;
+  --fw-radius-xl: 18px;
+  --fw-radius-pill: 9999px;
+  
+  /* Shadows */
+  --fw-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --fw-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --fw-shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --fw-shadow-glow: 0 0 20px rgba(6, 182, 212, 0.15);
+  
+  /* Transitions */
+  --fw-transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Base Resets */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background-color: var(--fw-bg-base);
+  color: var(--fw-text-primary);
+  font-family: var(--fw-font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--fw-bg-base);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--fw-bg-elevated);
+  border-radius: var(--fw-radius-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--fw-text-muted);
+}
+
+/* Focus Visibility */
+:focus-visible {
+  outline: 2px solid var(--fw-cyan);
+  outline-offset: 2px;
+}
+
+/* Utility Screen Reader */
+.fw-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Pulse animation for live markers */
+@keyframes fw-pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 7px rgba(6, 182, 212, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0);
+  }
+}
+
+@keyframes fw-pulse-red {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
