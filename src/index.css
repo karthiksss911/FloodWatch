@@ -6,17 +6,19 @@
    ========================================================================== */
 
 :root {
-  /* Color Palette - Command Dark */
-  --fw-bg-base: #080C15;
-  --fw-bg-surface: #0E1524;
-  --fw-bg-card: #131C31;
-  --fw-bg-card-hover: #18233D;
-  --fw-bg-elevated: #1D2A47;
+  /* Color Palette - Command Dark & Cinematic Storm Atmosphere */
+  --fw-bg-base: #05080F;
+  --fw-bg-surface: rgba(10, 16, 28, 0.82);
+  --fw-bg-card: rgba(14, 22, 38, 0.74);
+  --fw-bg-card-hover: rgba(20, 31, 54, 0.85);
+  --fw-bg-elevated: rgba(26, 40, 68, 0.75);
   
   /* Borders & Dividers */
   --fw-border-subtle: rgba(255, 255, 255, 0.08);
-  --fw-border-card: rgba(255, 255, 255, 0.12);
-  --fw-border-accent: rgba(6, 182, 212, 0.4);
+  --fw-border-card: rgba(255, 255, 255, 0.11);
+  --fw-border-accent: rgba(6, 182, 212, 0.45);
+  --fw-backdrop-blur: blur(20px) saturate(160%);
+  --fw-glass-shadow: 0 12px 36px -8px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   
   /* Brand & Accents */
   --fw-cyan: #06B6D4;

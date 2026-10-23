@@ -9,8 +9,26 @@ import ReportView from './components/views/ReportView';
 import RiskView from './components/views/RiskView';
 import AssistanceView from './components/views/AssistanceView';
 import AuthorityView from './components/views/AuthorityView';
+import AtmosphericBackground from './components/layout/AtmosphericBackground';
 import { INITIAL_INCIDENTS, ASSISTANCE_POINTS } from './data/demoData';
 import './App.css';
+
+const STORAGE_KEY = 'floodwatch_kerala_incidents_v1';
+
+function getInitialIncidents() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.warn('Could not read saved incidents from localStorage:', err);
+  }
+  return INITIAL_INCIDENTS;
+}
 
 /**
  * FloodWatch Kerala - Application Root Shell
@@ -19,10 +37,25 @@ import './App.css';
  */
 function App() {
   const [activeTab, setActiveTab] = useState('overview');
-  const [incidents, setIncidents] = useState(INITIAL_INCIDENTS);
-  const [selectedIncidentId, setSelectedIncidentId] = useState(INITIAL_INCIDENTS[0]?.id);
+  const [incidents, setIncidents] = useState(getInitialIncidents);
+  const [selectedIncidentId, setSelectedIncidentId] = useState(incidents[0]?.id || INITIAL_INCIDENTS[0]?.id);
+  const [selectedAssistancePointId, setSelectedAssistancePointId] = useState(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [hotlinesModalOpen, setHotlinesModalOpen] = useState(false);
+
+  // Shared Risk Intelligence simulation parameters (Requirement 7 & 8)
+  const [simulatedRainfall, setSimulatedRainfall] = useState(38.0); // mm/h
+  const [decayHalfLife, setDecayHalfLife] = useState(2.0); // hours
+  const [rainfallMultiplier, setRainfallMultiplier] = useState(1.2);
+
+  // Persist incidents state to localStorage on every update
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(incidents));
+    } catch (err) {
+      console.warn('Could not persist incidents to localStorage:', err);
+    }
+  }, [incidents]);
 
   // Close mobile navigation drawer on Escape key
   useEffect(() => {
@@ -38,11 +71,17 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [mobileNavOpen]);
 
-  // Navigate between views and optionally focus on a specific incident
-  const handleNavigate = (tab, incidentId = null) => {
+  // Navigate between views and optionally focus on a specific incident or assistance point
+  const handleNavigate = (tab, targetId = null, targetType = 'incident') => {
     setActiveTab(tab);
-    if (incidentId) {
-      setSelectedIncidentId(incidentId);
+    if (targetId) {
+      if (targetType === 'assistance' || (typeof targetId === 'string' && targetId.startsWith('AST-'))) {
+        setSelectedAssistancePointId(targetId);
+        setSelectedIncidentId(null);
+      } else {
+        setSelectedIncidentId(targetId);
+        setSelectedAssistancePointId(null);
+      }
     }
     setMobileNavOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -63,6 +102,7 @@ function App() {
             ...item,
             verification_status: newVerification,
             status: newStatus,
+            updated_at: new Date().toISOString(),
             review_history: [...(item.review_history || []), historyEntry],
           };
         }
@@ -71,8 +111,21 @@ function App() {
     );
   };
 
+  // Reset incidents to default demo dataset
+  const handleResetDemoIncidents = () => {
+    setIncidents(INITIAL_INCIDENTS);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_INCIDENTS));
+    } catch (err) {
+      console.warn('Could not reset demo incidents:', err);
+    }
+  };
+
   return (
     <div className="fw-app-wrapper">
+      {/* Cinematic Atmospheric Background (Margins Studio / GoShuin / Mapa do Astro inspired) */}
+      <AtmosphericBackground />
+
       {/* Top Hackathon Demo Disclaimer Banner */}
       <EmergencyBanner onOpenHotlines={() => setHotlinesModalOpen(true)} />
 
@@ -102,14 +155,25 @@ function App() {
             {activeTab === 'overview' && (
               <OverviewView
                 incidents={incidents}
+                simulatedRainfall={simulatedRainfall}
+                rainfallMultiplier={rainfallMultiplier}
                 onNavigate={(tab, id) => handleNavigate(tab, id)}
               />
             )}
             {activeTab === 'map' && (
               <MapView
                 incidents={incidents}
+                assistancePoints={ASSISTANCE_POINTS}
                 selectedIncidentId={selectedIncidentId}
-                onSelectIncident={(id) => setSelectedIncidentId(id)}
+                selectedAssistancePointId={selectedAssistancePointId}
+                onSelectIncident={(id) => {
+                  setSelectedIncidentId(id);
+                  setSelectedAssistancePointId(null);
+                }}
+                onSelectAssistancePoint={(id) => {
+                  setSelectedAssistancePointId(id);
+                  setSelectedIncidentId(null);
+                }}
                 onNavigateToReport={() => handleNavigate('report')}
               />
             )}
@@ -119,14 +183,31 @@ function App() {
                 onNavigate={(tab, id) => handleNavigate(tab, id)}
               />
             )}
-            {activeTab === 'risk' && <RiskView />}
+            {activeTab === 'risk' && (
+              <RiskView
+                incidents={incidents}
+                simulatedRainfall={simulatedRainfall}
+                onSimulatedRainfallChange={setSimulatedRainfall}
+                decayHalfLife={decayHalfLife}
+                onDecayHalfLifeChange={setDecayHalfLife}
+                rainfallMultiplier={rainfallMultiplier}
+                onRainfallMultiplierChange={setRainfallMultiplier}
+                onNavigate={(tab, id) => handleNavigate(tab, id)}
+              />
+            )}
             {activeTab === 'assistance' && (
-              <AssistanceView onOpenHotlines={() => setHotlinesModalOpen(true)} />
+              <AssistanceView
+                assistancePoints={ASSISTANCE_POINTS}
+                onOpenHotlines={() => setHotlinesModalOpen(true)}
+                onNavigateToMap={(pointId) => handleNavigate('map', pointId, 'assistance')}
+              />
             )}
             {activeTab === 'authority' && (
               <AuthorityView
                 incidents={incidents}
                 onUpdateIncidentStatus={handleUpdateIncidentStatus}
+                onNavigateToMap={(incidentId) => handleNavigate('map', incidentId, 'incident')}
+                onResetDemoData={handleResetDemoIncidents}
               />
             )}
           </main>

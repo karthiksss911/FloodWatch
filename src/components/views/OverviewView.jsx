@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
 import Icon from '../common/Icon';
 import Card from '../common/Card';
 import StatCard from '../common/StatCard';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
+import { calculateAggregateRisk } from '../../utils/riskEngine';
 import {
   INITIAL_INCIDENTS,
   RAINFALL_STATIONS,
@@ -15,12 +17,22 @@ import {
  * Displays top KPIs, critical hotspots, rainfall telemetry, and incident feed.
  * All data is strictly labelled as demonstration / simulated data.
  */
-export default function OverviewView({ incidents = INITIAL_INCIDENTS, onNavigate }) {
+export default function OverviewView({
+  incidents = INITIAL_INCIDENTS,
+  simulatedRainfall = 38.0,
+  rainfallMultiplier = 1.2,
+  onNavigate,
+}) {
   const severeCount = incidents.filter((i) => i.severity === 'severe').length;
   const highCount = incidents.filter((i) => i.severity === 'high').length;
   const verifiedCount = incidents.filter(
     (i) => i.verification_status === 'demo_reviewed' || i.verification_status === 'demo_community_confirmed'
   ).length;
+
+  // Dynamically compute aggregate regional risk from shared incidents and weather input
+  const aggregateRisk = useMemo(() => {
+    return calculateAggregateRisk(incidents, simulatedRainfall, rainfallMultiplier);
+  }, [incidents, simulatedRainfall, rainfallMultiplier]);
 
   return (
     <div className="fw-overview-view">
@@ -75,11 +87,11 @@ export default function OverviewView({ incidents = INITIAL_INCIDENTS, onNavigate
         />
         <StatCard
           label="Peak Simulated Rain"
-          value="48.6 mm/h"
-          subtext="Simulated Aluva demo unit"
+          value={`${simulatedRainfall} mm/h`}
+          subtext="Simulated Weather Radar Input"
           icon="cloud-rain"
           trend="Demo Parameter"
-          trendDirection="warning"
+          trendDirection={simulatedRainfall >= 40 ? 'danger' : simulatedRainfall >= 20 ? 'warning' : 'neutral'}
           variant="warning"
         />
       </section>
@@ -205,26 +217,32 @@ export default function OverviewView({ incidents = INITIAL_INCIDENTS, onNavigate
 
         {/* Right Column: Risk Intelligence & Emergency Action */}
         <div className="fw-dash-col-side">
-          {/* Explainable Risk Overview Card */}
+          {/* Explainable Risk Overview Card (Dynamic Phase 4) */}
           <Card
             title="Experimental Area Risk Index"
-            subtitle="Simulated Deterministic Model for Greater Kochi (Demonstration Only)"
+            subtitle="Deterministic Composite Model for Greater Kochi (Demonstration Only)"
             icon={<Icon name="activity" size={18} color="#F59E0B" />}
-            badge={<Badge severity="high">Simulated Caution</Badge>}
+            badge={
+              <Badge severity={aggregateRisk.category.categoryKey}>
+                {aggregateRisk.category.label}
+              </Badge>
+            }
             variant="highlighted"
           >
             <div className="fw-risk-summary-box">
               <div className="fw-risk-dial">
-                <span className="fw-risk-score-num">74</span>
+                <span className="fw-risk-score-num" style={{ color: aggregateRisk.category.color }}>
+                  {aggregateRisk.score}
+                </span>
                 <span className="fw-risk-score-max">/100</span>
-                <span className="fw-risk-score-label">Area Risk Index</span>
+                <span className="fw-risk-score-label">Regional Index</span>
               </div>
               <div className="fw-risk-dial-text">
                 <p>
-                  <strong>High Risk of Localized Inundation</strong>
+                  <strong>{aggregateRisk.category.label}</strong>
                 </p>
                 <p className="fw-risk-note">
-                  Sustained precipitation (&gt;35mm/h) combined with high tidal backwater and clogged primary stormwater drains at Kaloor and Edappally.
+                  Primary pressure in <strong>{aggregateRisk.topZone?.zoneName || 'Greater Kochi'}</strong>. {aggregateRisk.topZone?.drainageNotes || 'Active runoff accumulation.'}
                 </p>
               </div>
             </div>
@@ -232,25 +250,45 @@ export default function OverviewView({ incidents = INITIAL_INCIDENTS, onNavigate
             <div className="fw-risk-factors-list">
               <h4 className="fw-factors-title">Contributing Evidence Factors:</h4>
               <div className="fw-factor-item">
-                <span className="fw-factor-name">Incident Cluster Density</span>
+                <span className="fw-factor-name">Incident Severity Weight</span>
                 <div className="fw-factor-bar-wrap">
-                  <div className="fw-factor-bar" style={{ width: '82%', backgroundColor: '#EF4444' }} />
+                  <div
+                    className="fw-factor-bar"
+                    style={{
+                      width: `${Math.min(100, (aggregateRisk.topZone?.contributingFactors.severityPts || 20) * 2.5)}%`,
+                      backgroundColor: '#EF4444',
+                    }}
+                  />
                 </div>
-                <span className="fw-factor-weight">+38 pts</span>
+                <span className="fw-factor-weight">+{aggregateRisk.topZone?.contributingFactors.severityPts || 0} pts</span>
               </div>
+
               <div className="fw-factor-item">
-                <span className="fw-factor-name">Rainfall Intensity (&gt;40mm/h)</span>
+                <span className="fw-factor-name">Rainfall Runoff Pressure</span>
                 <div className="fw-factor-bar-wrap">
-                  <div className="fw-factor-bar" style={{ width: '70%', backgroundColor: '#F97316' }} />
+                  <div
+                    className="fw-factor-bar"
+                    style={{
+                      width: `${Math.min(100, (aggregateRisk.topZone?.contributingFactors.rainfallPts || 15) * 3)}%`,
+                      backgroundColor: '#F97316',
+                    }}
+                  />
                 </div>
-                <span className="fw-factor-weight">+24 pts</span>
+                <span className="fw-factor-weight">+{aggregateRisk.topZone?.contributingFactors.rainfallPts || 0} pts</span>
               </div>
+
               <div className="fw-factor-item">
-                <span className="fw-factor-name">Independent Report Agreement</span>
+                <span className="fw-factor-name">Evidence Confidence Level</span>
                 <div className="fw-factor-bar-wrap">
-                  <div className="fw-factor-bar" style={{ width: '65%', backgroundColor: '#06B6D4' }} />
+                  <div
+                    className="fw-factor-bar"
+                    style={{
+                      width: `${aggregateRisk.confidence}%`,
+                      backgroundColor: '#06B6D4',
+                    }}
+                  />
                 </div>
-                <span className="fw-factor-weight">88% Conf</span>
+                <span className="fw-factor-weight">{aggregateRisk.confidence}% Conf</span>
               </div>
             </div>
 

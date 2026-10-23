@@ -62,6 +62,12 @@ export default function Badge({
         displayIcon = displayIcon || 'clock';
         text = text || 'Unverified Citizen Report (Demo)';
         break;
+      case 'rejected':
+      case 'demo_rejected':
+        styleClass = 'fw-badge-severe';
+        displayIcon = displayIcon || 'x-circle';
+        text = text || 'Rejected / Dismissed (Demo)';
+        break;
       case 'demo_facility_record':
       case 'demo_record':
       default:
@@ -80,12 +86,17 @@ export default function Badge({
       case 'investigating':
       case 'monitoring':
         styleClass = 'fw-badge-warning';
-        text = text || 'Monitoring';
+        text = text || 'Under Inspection (Demo)';
         break;
       case 'cleared':
       case 'resolved':
         styleClass = 'fw-badge-resolved';
-        text = text || 'Cleared';
+        text = text || 'Cleared / Resolved';
+        break;
+      case 'dismissed':
+      case 'rejected':
+        styleClass = 'fw-badge-severe';
+        text = text || 'Dismissed';
         break;
       default:
         styleClass = 'fw-badge-default';

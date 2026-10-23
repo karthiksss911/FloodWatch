@@ -178,7 +178,9 @@ export default function MapView({
   incidents = INITIAL_INCIDENTS,
   assistancePoints = ASSISTANCE_POINTS,
   selectedIncidentId,
+  selectedAssistancePointId,
   onSelectIncident,
+  onSelectAssistancePoint,
   onNavigateToReport,
 }) {
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -189,25 +191,35 @@ export default function MapView({
   const [legendOpen, setLegendOpen] = useState(true);
   const [resetKey, setResetKey] = useState(0);
 
-  // Local selection state for user clicks
-  const [userSelectedIncidentId, setUserSelectedIncidentId] = useState(null);
-  const [selectedAssistancePoint, setSelectedAssistancePoint] = useState(null);
+  // Local click selection overrides
+  const [clickedIncidentId, setClickedIncidentId] = useState(null);
+  const [clickedAssistancePointId, setClickedAssistancePointId] = useState(null);
 
-  // Compute active incident without cascading setState effects
-  const activeIncidentId = userSelectedIncidentId || selectedIncidentId || incidents[0]?.id;
-  const currentIncident = incidents.find((i) => i.id === activeIncidentId) || incidents[0];
+  // Derive active assistance point from clicks or incoming navigation prop
+  const activeAssistancePointId = clickedAssistancePointId || selectedAssistancePointId;
+  const selectedAssistancePoint = activeAssistancePointId
+    ? assistancePoints.find((p) => p.id === activeAssistancePointId) || null
+    : null;
+
+  // Derive active incident from clicks or incoming navigation prop (fallback to first incident if no assistance point is focused)
+  const activeIncidentId = clickedIncidentId || (!selectedAssistancePoint ? (selectedIncidentId || incidents[0]?.id) : null);
+  const currentIncident = incidents.find((i) => i.id === activeIncidentId) || (selectedAssistancePoint ? null : incidents[0]);
 
   const handleSelectIncident = (inc) => {
-    setUserSelectedIncidentId(inc.id);
-    setSelectedAssistancePoint(null);
+    setClickedIncidentId(inc.id);
+    setClickedAssistancePointId(null);
     if (typeof onSelectIncident === 'function') {
       onSelectIncident(inc.id);
     }
   };
 
   const handleSelectAssistance = (point) => {
-    setSelectedAssistancePoint(point);
-    setUserSelectedIncidentId(null);
+    setClickedAssistancePointId(point.id);
+    setClickedIncidentId(null);
+    setShowAssistance(true);
+    if (typeof onSelectAssistancePoint === 'function') {
+      onSelectAssistancePoint(point.id);
+    }
   };
 
   const handleResetView = () => {
@@ -313,6 +325,7 @@ export default function MapView({
             <option value="demo_reviewed">Demo Desk Reviewed</option>
             <option value="demo_community_confirmed">Demo Community Check</option>
             <option value="demo_unverified">Unverified Citizen (Demo)</option>
+            <option value="rejected">Rejected / Dismissed (Demo)</option>
           </select>
         </div>
 
