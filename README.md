@@ -1,17 +1,17 @@
-# NaaduSync
+# FloodWatch
 ### AI-Powered Community Flood Intelligence and Response Support
 
-NaaduSync is a community-driven flood intelligence platform designed to consolidate local hazard reports, weather information, and AI-assisted incident analysis into a unified operational view. It aims to help citizens, emergency responders, and local authorities better understand flood-related risks and make informed decisions during extreme weather events.
+FloodWatch is a community-driven flood intelligence platform designed to consolidate local hazard reports, weather information, and AI-assisted incident analysis into a unified operational view. It aims to help citizens, emergency responders, and local authorities better understand flood-related risks and make informed decisions during extreme weather events.
 
 ## 1. Problem Statement
 
 During heavy rainfall and flooding, critical information is often fragmented across messaging platforms, social media, and emergency helplines. The lack of consolidated, location-specific incident intelligence makes it difficult to assess road conditions, identify emerging hazards, and prioritize response efforts.
 
-NaaduSync addresses this challenge by bringing community reports and relevant contextual data together in a centralized platform.
+FloodWatch addresses this challenge by bringing community reports and relevant contextual data together in a centralized platform.
 
 ## 2. Target Users and Context
 
-NaaduSync is designed to support communities and organizations involved in local flood awareness and emergency response.
+FloodWatch is designed to support communities and organizations involved in local flood awareness and emergency response.
 
 - **Citizens:** Submit reports of flooding, waterlogging, road blockages, and other hazards.
 - **Emergency Responders:** Access structured incident information to support situational assessment and response planning.
@@ -22,7 +22,7 @@ The platform focuses on flood-prone communities in Kerala, where seasonal monsoo
 
 ## 3. Solution Overview
 
-NaaduSync combines incident reporting, geospatial visualization, weather context, risk assessment, and AI-assisted analysis within a unified application.
+FloodWatch combines incident reporting, geospatial visualization, weather context, risk assessment, and AI-assisted analysis within a unified application.
 
 ### Core Capabilities
 
@@ -74,9 +74,11 @@ flowchart TD
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/karthiksss911/NaaduSync.git
-cd NaaduSync
+git clone <YOUR_FLOODWATCH_REPOSITORY_URL>
+cd FloodWatch
 ```
+
+Replace the repository URL with the actual FloodWatch repository URL.
 
 ### Install Dependencies
 
@@ -138,7 +140,7 @@ Use the actual scripts and ports defined in the repository. Verify the backend h
 
 ### AI Incident Analysis
 
-NaaduSync integrates the OpenAI API to generate structured assessments from available incident information.
+FloodWatch integrates the OpenAI API to generate structured assessments from available incident information.
 
 The analysis may include:
 - Incident classification.
@@ -166,7 +168,7 @@ AI-generated classifications are estimates based on the supplied information. Th
 
 ## 7. Evaluation and Safety Guardrails
 
-NaaduSync is intended to support situational awareness rather than replace professional emergency assessment.
+FloodWatch is intended to support situational awareness rather than replace professional emergency assessment.
 
 ### Evaluation Approach
 
@@ -190,7 +192,7 @@ Quantitative performance claims should be published only after testing against a
 - Keep sensitive credentials out of client-side code and logs.
 - Do not automatically change official verification status based solely on AI output.
 
-NaaduSync does not guarantee route safety, replace official emergency instructions, or independently dispatch rescue teams.
+FloodWatch does not guarantee route safety, replace official emergency instructions, or independently dispatch rescue teams.
 
 ## 8. Known Limitations and Risks
 
@@ -219,10 +221,6 @@ Update this section with the actual project contributors and their preferred pub
 
 ## 10. Project Status
 
-NaaduSync is being developed as an AI-assisted community flood intelligence platform. Features, integrations, and operational readiness should be assessed against the current source code and documented test results.
+FloodWatch is being developed as an AI-assisted community flood intelligence platform. Features, integrations, and operational readiness should be assessed against the current source code and documented test results.
 
 Contributions, testing, and feedback are valuable for improving the platform's reliability, usability, and suitability for real-world disaster preparedness.
-
----
-
-**Repository:** [github.com/karthiksss911/NaaduSync](https://github.com/karthiksss911/NaaduSync)
