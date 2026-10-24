@@ -1,10 +1,68 @@
 import { Router } from 'express';
 import { backendIncidentService } from '../services/incidentService.js';
+import { incidentIntelligenceService } from '../services/incidentIntelligenceService.js';
 import { validateCreateIncident, validateUpdateIncidentStatus } from '../middleware/validation.js';
 import { requireAuthority } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 const router = Router();
+
+/**
+ * POST /api/v1/incidents/actions/reset-demo
+ * Disabled in live database mode to prevent accidental data overwrites
+ */
+router.post('/actions/reset-demo', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Live Supabase database mode active. Resetting mock data is disabled.',
+  });
+});
+
+/**
+ * POST /api/v1/incidents/:id/ai-analysis
+ * Generate or retrieve cached AI incident intelligence (authority access required)
+ */
+router.post('/:id/ai-analysis', requireAuthority, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!id || typeof id !== 'string' || !id.trim()) {
+      return next(new AppError('Valid incident ID is required.', 400, 'INVALID_INCIDENT_ID'));
+    }
+
+    const forceReanalyze = req.body?.forceReanalyze === true || req.query?.force === 'true';
+    const result = await incidentIntelligenceService.analyzeIncident(id.trim(), { forceReanalyze });
+
+    res.status(200).json({
+      success: true,
+      data: result.data,
+      cached: result.cached,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/v1/incidents/:id/ai-analysis
+ * Retrieve existing AI intelligence record for an incident
+ */
+router.get('/:id/ai-analysis', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!id || typeof id !== 'string' || !id.trim()) {
+      return next(new AppError('Valid incident ID is required.', 400, 'INVALID_INCIDENT_ID'));
+    }
+
+    const result = await incidentIntelligenceService.getAnalysis(id.trim());
+
+    res.status(200).json({
+      success: true,
+      data: result ?? null,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 /**
  * GET /api/v1/incidents
@@ -81,17 +139,6 @@ router.patch('/:id', requireAuthority, validateUpdateIncidentStatus, async (req,
   } catch (err) {
     next(err);
   }
-});
-
-/**
- * POST /api/v1/incidents/actions/reset-demo
- * Disabled in live database mode to prevent accidental data overwrites
- */
-router.post('/actions/reset-demo', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Live Supabase database mode active. Resetting mock data is disabled.',
-  });
 });
 
 export default router;

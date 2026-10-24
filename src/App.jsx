@@ -169,7 +169,7 @@ function App() {
         title="Situation Overview & Key Indicators"
         subtitle="Monitored Greater Kochi sectors, active hazard counts, and weather summary"
         icon="home"
-        maxWidth="960px"
+        maxWidth="1400px"
       >
         <OverviewView
           incidents={incidents}
@@ -198,7 +198,7 @@ function App() {
         title="Assistance Points & Relief Centres"
         subtitle="Registered emergency shelters, medical staging posts, and boat rescue depots"
         icon="heart"
-        maxWidth="960px"
+        maxWidth="1200px"
       >
         <AssistanceView
           assistancePoints={assistancePoints}
@@ -225,7 +225,7 @@ function App() {
         title="Explainable Risk Intelligence Engine"
         subtitle="Topographical vulnerability & rainfall accumulation simulation"
         icon="activity"
-        maxWidth="960px"
+        maxWidth="1200px"
       >
         <RiskView
           incidents={incidents}
@@ -256,7 +256,7 @@ function App() {
         title="Authority Incident Verification Console"
         subtitle="Authorized operational triage and citizen report confirmation"
         icon="shield"
-        maxWidth="960px"
+        maxWidth="1200px"
       >
         <AuthorityView
           incidents={incidents}

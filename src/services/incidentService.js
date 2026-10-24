@@ -14,23 +14,46 @@ export class BaseIncidentAdapter {
   async create() {
     throw new Error('create() must be implemented by adapter');
   }
-  async updateStatus() {
-    throw new Error('updateStatus() must be implemented by adapter');
+  async getAiAnalysis() {
+    throw new Error('getAiAnalysis() must be implemented by adapter');
+  }
+  async generateAiAnalysis() {
+    throw new Error('generateAiAnalysis() must be implemented by adapter');
   }
 }
 
 /**
- * REST API Adapter connecting to http://localhost:5000/api/v1/incidents
+ * REST API Adapter connecting to /api/v1/incidents
  */
 export class ApiIncidentAdapter extends BaseIncidentAdapter {
-  constructor(baseUrl = 'http://localhost:5000/api/v1') {
+  constructor(baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1') {
     super();
     this.baseUrl = baseUrl;
-    this.authoritySecret = 'kerala-emergency-authority-2026';
+    this.authoritySecret = '';
+  }
+
+  getAuthoritySecret() {
+    if (typeof window !== 'undefined') {
+      const stored =
+        sessionStorage.getItem('naadusync_authority_secret') ||
+        localStorage.getItem('naadusync_authority_secret');
+      if (stored) return stored.trim();
+    }
+    return (import.meta.env.VITE_AUTHORITY_SECRET || this.authoritySecret || '').trim();
+  }
+
+  setAuthoritySecret(secret) {
+    this.authoritySecret = (secret || '').trim();
+    if (typeof window !== 'undefined') {
+      if (this.authoritySecret) {
+        sessionStorage.setItem('naadusync_authority_secret', this.authoritySecret);
+      } else {
+        sessionStorage.removeItem('naadusync_authority_secret');
+      }
+    }
   }
 
   getAllSync() {
-    // Initial synchronous state is an empty array (no hardcoded mock data)
     return [];
   }
 
@@ -83,11 +106,12 @@ export class ApiIncidentAdapter extends BaseIncidentAdapter {
   }
 
   async updateStatus(id, newVerification, newStatus, historyEntry) {
+    const secret = this.getAuthoritySecret();
     const res = await fetch(`${this.baseUrl}/incidents/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'X-Authority-Secret': this.authoritySecret,
+        ...(secret ? { 'X-Authority-Secret': secret } : {}),
       },
       body: JSON.stringify({
         verification_status: newVerification,
@@ -107,6 +131,49 @@ export class ApiIncidentAdapter extends BaseIncidentAdapter {
     }
     throw new Error('Failed to update incident status');
   }
+
+  async getAiAnalysis(id) {
+    const res = await fetch(`${this.baseUrl}/incidents/${encodeURIComponent(id)}/ai-analysis`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) {
+      if (res.status === 404) return null;
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error?.message || `Failed to fetch AI analysis (HTTP ${res.status})`);
+    }
+    const body = await res.json();
+    return body.data ?? null;
+  }
+
+  async generateAiAnalysis(id, { forceReanalyze = false } = {}) {
+    const secret = this.getAuthoritySecret();
+    const headers = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+    if (secret) {
+      headers['X-Authority-Secret'] = secret;
+    }
+
+    const res = await fetch(`${this.baseUrl}/incidents/${encodeURIComponent(id)}/ai-analysis`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ forceReanalyze }),
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      const code = errJson.error?.code || '';
+      const msg = errJson.error?.message || `AI analysis request failed (HTTP ${res.status})`;
+      const error = new Error(msg);
+      error.status = res.status;
+      error.code = code;
+      throw error;
+    }
+
+    const body = await res.json();
+    return { data: body.data, cached: Boolean(body.cached) };
+  }
 }
 
 /**
@@ -119,6 +186,18 @@ class IncidentService {
 
   setAdapter(newAdapter) {
     this.adapter = newAdapter;
+  }
+
+  getAuthoritySecret() {
+    return typeof this.adapter.getAuthoritySecret === 'function'
+      ? this.adapter.getAuthoritySecret()
+      : '';
+  }
+
+  setAuthoritySecret(secret) {
+    if (typeof this.adapter.setAuthoritySecret === 'function') {
+      this.adapter.setAuthoritySecret(secret);
+    }
   }
 
   getAllSync() {
@@ -141,6 +220,20 @@ class IncidentService {
 
   async updateStatus(id, newVerification, newStatus, historyEntry) {
     return this.adapter.updateStatus(id, newVerification, newStatus, historyEntry);
+  }
+
+  async getAiAnalysis(id) {
+    if (typeof this.adapter.getAiAnalysis === 'function') {
+      return this.adapter.getAiAnalysis(id);
+    }
+    return null;
+  }
+
+  async generateAiAnalysis(id, options) {
+    if (typeof this.adapter.generateAiAnalysis === 'function') {
+      return this.adapter.generateAiAnalysis(id, options);
+    }
+    throw new Error('AI analysis is not supported by current adapter');
   }
 }
 

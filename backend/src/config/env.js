@@ -43,7 +43,16 @@ function validateConfig() {
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY?.trim() || '';
   const hasSupabaseConfigured = Boolean(supabaseUrl && (supabaseServiceRoleKey || supabaseAnonKey));
 
-  const authoritySecret = process.env.AUTHORITY_SECRET?.trim() || 'kerala-emergency-authority-2026';
+  const authoritySecret = process.env.AUTHORITY_SECRET?.trim() || '';
+
+  if (!authoritySecret) {
+    throw new Error(
+      '[Config Error] AUTHORITY_SECRET is required. Set it in backend/.env.'
+    );
+  }
+
+  const openaiApiKey = process.env.OPENAI_API_KEY?.trim() || '';
+  const openaiModel = process.env.OPENAI_MODEL?.trim() || 'gpt-4.1-mini';
 
   return Object.freeze({
     port,
@@ -51,6 +60,11 @@ function validateConfig() {
     isProduction: nodeEnv === 'production',
     allowedOrigins,
     authoritySecret,
+    openai: {
+      apiKey: openaiApiKey,
+      model: openaiModel,
+      isConfigured: Boolean(openaiApiKey),
+    },
     supabase: {
       url: supabaseUrl,
       serviceRoleKey: supabaseServiceRoleKey,

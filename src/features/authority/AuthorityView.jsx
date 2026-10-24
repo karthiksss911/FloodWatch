@@ -4,6 +4,7 @@ import Card from '../../components/common/Card';
 import Badge from '../../components/common/Badge';
 import Button from '../../components/common/Button';
 import StatCard from '../../components/common/StatCard';
+import AiIncidentIntelligenceCard from '../incidents/components/AiIncidentIntelligenceCard';
 
 // Monitored recurring geographic hotspots in Greater Kochi
 const RECURRING_HOTSPOTS = [
@@ -682,6 +683,12 @@ export default function AuthorityView({
                     </div>
                   )}
                 </div>
+
+                {/* AI Incident Intelligence & Risk Assessment Panel */}
+                <AiIncidentIntelligenceCard
+                  incidentId={currentIncident.id}
+                  isAuthority={true}
+                />
 
                 {/* Review Audit History Timeline */}
                 <div className="fw-triage-history-box">

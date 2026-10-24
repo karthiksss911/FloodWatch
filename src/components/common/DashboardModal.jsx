@@ -12,7 +12,7 @@ export default function DashboardModal({
   title,
   subtitle,
   icon = 'activity',
-  maxWidth = '880px',
+  maxWidth = '1400px',
   children,
 }) {
   useEffect(() => {
@@ -40,7 +40,7 @@ export default function DashboardModal({
     >
       <div
         className="fw-dash-modal-window"
-        style={{ maxWidth }}
+        style={{ maxWidth: maxWidth || '1400px' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="fw-dash-modal-header">

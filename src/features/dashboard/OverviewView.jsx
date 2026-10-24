@@ -57,7 +57,7 @@ export default function OverviewView({
         </div>
         <div className="fw-ticker-text">
           {error ? (
-            <span style={{ color: '#FCA5A5' }}>
+            <span style={{ color: '#DC2626' }}>
               <strong>DATABASE CONNECTION NOTICE:</strong> Unable to synchronize with Supabase. Please ensure your Express backend and network connection are active.
             </span>
           ) : topCriticalIncident ? (

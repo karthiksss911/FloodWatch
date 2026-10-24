@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import Icon from '../../components/common/Icon';
 import { CATEGORIES } from '../../config/disasterConfig';
+import AiIncidentIntelligenceCard from '../incidents/components/AiIncidentIntelligenceCard';
 
 /**
  * Left Information Panel — Flood Incident List
@@ -405,6 +406,10 @@ export default function LeftIncidentPanel({
                           <p className="fw-exp-text fw-text-muted">{incident.reporter_notes}</p>
                         </div>
                       )}
+                      <AiIncidentIntelligenceCard
+                        incidentId={incident.id}
+                        isAuthority={false}
+                      />
                     </div>
                   )}
                 </article>

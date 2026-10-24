@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Icon from '../../components/common/Icon';
+import incidentService from '../../services/incidentService';
 
 /**
  * Floating Incident Detail Panel (over the bottom of the map)
@@ -11,6 +12,7 @@ import Icon from '../../components/common/Icon';
  * - Live Open-Meteo Weather & Rainfall context
  * - Reported time & Verification Source
  * - Authorized Triage actions (Investigate, Verify, Resolve)
+ * - AI Incident Intelligence Assessment
  */
 export default function FloatingIncidentDetailCard({
   incident,
@@ -22,6 +24,24 @@ export default function FloatingIncidentDetailCard({
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState(null);
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [aiExpanded, setAiExpanded] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!incident?.id) return;
+    incidentService
+      .getAiAnalysis(incident.id)
+      .then((data) => {
+        if (isMounted) setAiAnalysis(data);
+      })
+      .catch(() => {
+        if (isMounted) setAiAnalysis(null);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [incident?.id]);
 
   if (!incident) return null;
 
@@ -150,6 +170,51 @@ export default function FloatingIncidentDetailCard({
             )}
           </div>
 
+          {/* AI Intelligence Toggle Pill */}
+          {aiAnalysis && aiAnalysis.analysis_status === 'completed' && (
+            <button
+              type="button"
+              className="fw-fl-action-btn"
+              onClick={() => setAiExpanded((prev) => !prev)}
+              style={{
+                background: aiExpanded ? 'rgba(56, 189, 248, 0.2)' : 'rgba(56, 189, 248, 0.1)',
+                border: '1px solid rgba(56, 189, 248, 0.35)',
+                color: '#38BDF8',
+              }}
+              title="Toggle AI Incident Intelligence Assessment"
+            >
+              <Icon name="sparkles" size={13} color="#38BDF8" />
+              <span>AI Intel</span>
+              {aiAnalysis.road_status && aiAnalysis.road_status !== 'unknown' && (
+                <span
+                  style={{
+                    fontSize: '10px',
+                    padding: '1px 5px',
+                    borderRadius: '3px',
+                    background:
+                      aiAnalysis.road_status === 'blocked'
+                        ? 'rgba(239, 68, 68, 0.25)'
+                        : aiAnalysis.road_status === 'partially_blocked'
+                        ? 'rgba(245, 158, 11, 0.25)'
+                        : 'rgba(16, 185, 129, 0.25)',
+                    color:
+                      aiAnalysis.road_status === 'blocked'
+                        ? '#FCA5A5'
+                        : aiAnalysis.road_status === 'partially_blocked'
+                        ? '#FDE047'
+                        : '#6EE7B7',
+                  }}
+                >
+                  {aiAnalysis.road_status === 'blocked'
+                    ? 'Blocked'
+                    : aiAnalysis.road_status === 'partially_blocked'
+                    ? 'Caution'
+                    : 'Open'}
+                </span>
+              )}
+            </button>
+          )}
+
           {/* Emergency Helpline Button (Matching Contact Courier in reference) */}
           <button
             type="button"
@@ -173,6 +238,75 @@ export default function FloatingIncidentDetailCard({
           </button>
         </div>
       </div>
+
+      {/* Expanded AI Intelligence Brief Drawer */}
+      {aiExpanded && aiAnalysis && (
+        <div
+          style={{
+            padding: '12px 14px',
+            margin: '0 0 12px 0',
+            background: 'rgba(15, 23, 42, 0.85)',
+            border: '1px solid rgba(56, 189, 248, 0.3)',
+            borderRadius: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '8px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Icon name="sparkles" size={14} color="#38BDF8" />
+              <strong style={{ fontSize: '12px', color: '#38BDF8' }}>
+                OpenAI Assessment ({aiAnalysis.model_name || 'gpt-4.1-mini'})
+              </strong>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '11px', color: '#94A3B8' }}>
+                Confidence: <strong>{Math.round((aiAnalysis.confidence ?? 0.5) * 100)}%</strong>
+              </span>
+              {aiAnalysis.urgency && (
+                <span
+                  style={{
+                    fontSize: '10.5px',
+                    textTransform: 'uppercase',
+                    padding: '1px 6px',
+                    borderRadius: '3px',
+                    background: 'rgba(245, 158, 11, 0.15)',
+                    color: '#FBBF24',
+                  }}
+                >
+                  {aiAnalysis.urgency} urgency
+                </span>
+              )}
+            </div>
+          </div>
+          <p style={{ fontSize: '12px', color: '#F1F5F9', margin: 0, lineHeight: 1.5 }}>
+            {aiAnalysis.summary}
+          </p>
+          {aiAnalysis.recommended_action && (
+            <div
+              style={{
+                fontSize: '11.5px',
+                color: '#A7F3D0',
+                background: 'rgba(16, 185, 129, 0.08)',
+                padding: '6px 10px',
+                borderRadius: '4px',
+                border: '1px solid rgba(16, 185, 129, 0.2)',
+              }}
+            >
+              <strong>Action:</strong> {aiAnalysis.recommended_action}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Bottom Information Columns Row (Matching From | To | Current Location | Distance | Last Stop) */}
       <div className="fw-fl-cols-grid">

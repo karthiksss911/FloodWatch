@@ -344,6 +344,47 @@ export default function Icon({ name, size = 18, className = '', color = 'current
           <polyline points="9 22 9 12 15 12 15 22" />
         </svg>
       );
+    case 'sparkles':
+    case 'ai':
+      return (
+        <svg {...iconProps}>
+          <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z" />
+          <path d="M5 3v4" />
+          <path d="M19 17v4" />
+          <path d="M3 5h4" />
+          <path d="M17 19h4" />
+        </svg>
+      );
+    case 'cpu':
+      return (
+        <svg {...iconProps}>
+          <rect width="16" height="16" x="4" y="4" rx="2" />
+          <rect width="6" height="6" x="9" y="9" rx="1" />
+          <path d="M9 1v3" />
+          <path d="M15 1v3" />
+          <path d="M9 20v3" />
+          <path d="M15 20v3" />
+          <path d="M20 9h3" />
+          <path d="M20 14h3" />
+          <path d="M1 9h3" />
+          <path d="M1 14h3" />
+        </svg>
+      );
+    case 'lock':
+      return (
+        <svg {...iconProps}>
+          <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </svg>
+      );
+    case 'key':
+      return (
+        <svg {...iconProps}>
+          <circle cx="7.5" cy="15.5" r="4.5" />
+          <path d="m21 3-9.5 9.5" />
+          <path d="m15.5 7.5 3 3" />
+        </svg>
+      );
     default:
       return (
         <svg {...iconProps}>
