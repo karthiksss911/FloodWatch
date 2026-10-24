@@ -11,7 +11,7 @@
  * data uncertainty, NOT confirmed safe passage.
  */
 
-import { RAINFALL_STATIONS } from '../data/demoData';
+import { RAINFALL_STATIONS } from '../data/demoData.js';
 
 // Standard Greater Kochi Sub-Basins
 export const RISK_ZONES = [

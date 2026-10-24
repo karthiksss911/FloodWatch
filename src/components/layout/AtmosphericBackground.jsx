@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import './AtmosphericBackground.css';
 
 /**
  * AtmosphericBackground Component
@@ -63,6 +64,14 @@ function AtmosphericBackground() {
         {/* Stippled coordinate dot grid */}
         <rect width="100%" height="100%" fill="url(#fw-carto-dots)" />
 
+        {/* Orbital Radar & Telemetry Rings (Mapa do Astro inspired) */}
+        <g className="fw-atmos-radar-rings">
+          <circle cx="82%" cy="22%" r="220" fill="none" stroke="rgba(6, 182, 212, 0.12)" strokeDasharray="4 8" />
+          <circle cx="82%" cy="22%" r="400" fill="none" stroke="rgba(6, 182, 212, 0.06)" strokeDasharray="3 9" />
+          <circle cx="82%" cy="22%" r="600" fill="none" stroke="rgba(6, 182, 212, 0.03)" strokeDasharray="2 12" />
+          <circle cx="15%" cy="82%" r="280" fill="none" stroke="rgba(99, 102, 241, 0.08)" strokeDasharray="4 10" />
+        </g>
+
         {/* Atmospheric Isobaric & Bathymetric Contour Waves */}
         <g className="fw-atmos-contours">
           <path
@@ -93,6 +102,12 @@ function AtmosphericBackground() {
             strokeWidth="1"
             opacity="0.6"
           />
+        </g>
+
+        {/* Cartographic Coordinate Stamp Marks (GoShuin & Margins Studio inspired) */}
+        <g className="fw-atmos-stamps" opacity="0.32" fill="rgba(148, 163, 184, 0.7)" fontFamily="JetBrains Mono, monospace" fontSize="9.5" letterSpacing="0.14em">
+          <text x="32" y="80">09°58′23″N · 76°17′34″E [KERALA BASIN SECTOR 07]</text>
+          <text x="32" y="96">DATUM: WGS-84 / DOPPLER MONSOON INTELLIGENCE</text>
         </g>
       </svg>
 
