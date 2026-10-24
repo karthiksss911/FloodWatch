@@ -4,7 +4,6 @@ import Card from '../../components/common/Card';
 import Badge from '../../components/common/Badge';
 import Button from '../../components/common/Button';
 import StatCard from '../../components/common/StatCard';
-import { INITIAL_INCIDENTS } from '../../data/demoData';
 
 // Monitored recurring geographic hotspots in Greater Kochi
 const RECURRING_HOTSPOTS = [
@@ -30,10 +29,12 @@ const PRESET_REMARKS = [
  * Synchronizes with shared application state and Leaflet map in real time.
  */
 export default function AuthorityView({
-  incidents = INITIAL_INCIDENTS,
+  incidents = [],
+  isLoading = false,
+  error = null,
+  onRetry,
   onUpdateIncidentStatus,
   onNavigateToMap,
-  onResetDemoData,
 }) {
   const [selectedIncidentId, setSelectedIncidentId] = useState(incidents[0]?.id || null);
   const [queueTab, setQueueTab] = useState('pending'); // 'pending' | 'all' | 'verified' | 'investigating' | 'cleared' | 'rejected'
@@ -51,12 +52,15 @@ export default function AuthorityView({
     const total = incidents.length;
     const pending = incidents.filter(
       (i) =>
+        i.verification_status === 'unverified' ||
         i.verification_status === 'demo_unverified' ||
-        i.verification_status === 'demo_community_confirmed' ||
-        i.verification_status === 'unverified'
+        i.verification_status === 'demo_community_confirmed'
     ).length;
     const verified = incidents.filter(
-      (i) => i.verification_status === 'demo_reviewed' || i.verification_status === 'authority_verified'
+      (i) =>
+        i.verification_status === 'official_verified' ||
+        i.verification_status === 'demo_reviewed' ||
+        i.verification_status === 'authority_verified'
     ).length;
     const investigating = incidents.filter((i) => i.status === 'investigating').length;
     const cleared = incidents.filter((i) => i.status === 'cleared' || i.status === 'resolved').length;
@@ -113,13 +117,15 @@ export default function AuthorityView({
       // Tab filter
       if (queueTab === 'pending') {
         const isPending =
+          inc.verification_status === 'unverified' ||
           inc.verification_status === 'demo_unverified' ||
-          inc.verification_status === 'demo_community_confirmed' ||
-          inc.verification_status === 'unverified';
+          inc.verification_status === 'demo_community_confirmed';
         if (!isPending) return false;
       } else if (queueTab === 'verified') {
         const isVerified =
-          inc.verification_status === 'demo_reviewed' || inc.verification_status === 'authority_verified';
+          inc.verification_status === 'official_verified' ||
+          inc.verification_status === 'demo_reviewed' ||
+          inc.verification_status === 'authority_verified';
         if (!isVerified) return false;
       } else if (queueTab === 'investigating') {
         if (inc.status !== 'investigating') return false;
@@ -159,13 +165,13 @@ export default function AuthorityView({
 
     const historyEntry = {
       timestamp: new Date().toISOString(),
-      reviewer: 'Ernakulam Municipal Disaster Cell (Demo Officer)',
+      reviewer: 'Ernakulam Municipal Disaster Cell (Authority Console)',
       action: actionTitle,
       previous_verification: currentIncident.verification_status,
       new_verification: newVerification,
       previous_status: currentIncident.status,
       new_status: newStatus,
-      notes: note || `${actionTitle} recorded via Demonstration Authority Console.`,
+      notes: note || `${actionTitle} recorded via Authority Operations Console.`,
     };
 
     if (typeof onUpdateIncidentStatus === 'function') {
@@ -187,33 +193,59 @@ export default function AuthorityView({
           </div>
           <div>
             <div className="fw-auth-badge-row">
-              <span className="fw-auth-role-pill">DEMONSTRATION TRIAGE CONSOLE</span>
+              <span className="fw-auth-role-pill">LIVE AUTHORITY CONSOLE</span>
               <span className="fw-auth-privacy-pill">
                 <Icon name="check-circle" size={11} color="#10B981" /> Citizen Privacy Protected (PII Redacted)
               </span>
             </div>
             <h3 className="fw-auth-banner-title">
-              Authorized Incident Triage & Verification Console (Simulated)
+              Authorized Incident Triage & Verification Console
             </h3>
             <p className="fw-auth-banner-sub">
-              This console models municipal emergency verification workflows for hackathon evaluation.
-              <strong> It is NOT connected to actual Kerala Government emergency dispatch systems.</strong> Actions taken modify local demo state and synchronize with the interactive map immediately.
+              Live review console connected to Supabase PostgreSQL. Actions taken update incident verification status
+              and append audit entries to <code>public.incident_reviews</code> in real time.
             </p>
           </div>
         </div>
 
-        {typeof onResetDemoData === 'function' && (
+        {typeof onRetry === 'function' && (
           <Button
             variant="outline"
             size="sm"
             icon="rotate-ccw"
-            onClick={onResetDemoData}
-            title="Reset incident list to initial demo state"
+            onClick={onRetry}
+            title="Refresh triage queue from database"
           >
-            Reset Demo Incidents
+            Refresh Database
           </Button>
         )}
       </div>
+
+      {/* Database Connection Error Notice */}
+      {error && (
+        <div className="fw-error-banner" role="alert" style={{ marginBottom: '16px' }}>
+          <div className="fw-error-lead">
+            <Icon name="alert-triangle" size={18} color="#EF4444" />
+            <div>
+              <strong>Failed to sync triage queue from database</strong>
+              <p>{error}</p>
+            </div>
+          </div>
+          {typeof onRetry === 'function' && (
+            <Button variant="outline" size="sm" icon="rotate-ccw" onClick={onRetry}>
+              Retry Connection
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Loading State */}
+      {isLoading && (
+        <div className="fw-loading-banner" role="status" style={{ textAlign: 'center', padding: '12px 0', color: '#94A3B8' }}>
+          <span className="fw-spinner" style={{ display: 'inline-block', marginRight: '8px' }} />
+          <span>Synchronizing triage queue from database...</span>
+        </div>
+      )}
 
       {/* KPI Indicators */}
       <div className="fw-auth-kpi-grid">
@@ -621,9 +653,9 @@ export default function AuthorityView({
                   <div className="fw-triage-box">
                     <span className="fw-triage-lbl">Nearby Rainfall Context</span>
                     <span className="fw-triage-val">
-                      {currentIncident.rainfall_value} mm/h
+                      {currentIncident.rainfall_value ? `${currentIncident.rainfall_value} mm/h` : 'Telemetry unavailable'}
                     </span>
-                    <span className="fw-triage-sub">{currentIncident.rainfall_source}</span>
+                    <span className="fw-triage-sub">{currentIncident.rainfall_source || 'Sensor Offline'}</span>
                   </div>
 
                   <div className="fw-triage-box">
@@ -740,14 +772,14 @@ export default function AuthorityView({
                       icon="check-circle"
                       onClick={() =>
                         handleExecuteAction(
-                          'demo_reviewed',
+                          'official_verified',
                           'active',
-                          'Official Desk Verified (Demo)'
+                          'Officially Verified & Published'
                         )
                       }
                       title="Mark as officially verified and published"
                     >
-                      Mark Verified (Demo Desk)
+                      Mark Official Verified
                     </Button>
 
                     <Button
@@ -757,12 +789,12 @@ export default function AuthorityView({
                         handleExecuteAction(
                           currentIncident.verification_status,
                           'investigating',
-                          'Flagged for Field Inspection (Demo)'
+                          'Dispatched Field Inspection'
                         )
                       }
                       title="Set status to under active investigation"
                     >
-                      Mark Under Inspection (Demo)
+                      Mark Under Inspection
                     </Button>
 
                     <Button
@@ -770,9 +802,9 @@ export default function AuthorityView({
                       icon="shield-check"
                       onClick={() =>
                         handleExecuteAction(
-                          'demo_reviewed',
+                          'official_verified',
                           'cleared',
-                          'Hazard Cleared / Road Reopened (Demo)'
+                          'Hazard Cleared / Route Reopened'
                         )
                       }
                       title="Mark as resolved / cleared"
@@ -787,12 +819,12 @@ export default function AuthorityView({
                         handleExecuteAction(
                           'rejected',
                           'dismissed',
-                          'Rejected / Duplicate Report Dismissed (Demo)'
+                          'Rejected / Duplicate Report Dismissed'
                         )
                       }
                       title="Dismiss false or duplicate report"
                     >
-                      Reject / Dismiss (Demo)
+                      Reject & Dismiss
                     </Button>
                   </div>
                 </div>

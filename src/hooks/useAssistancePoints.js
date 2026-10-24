@@ -8,25 +8,37 @@ export function useAssistancePoints(initialFilters = {}) {
   const [assistancePoints, setAssistancePoints] = useState(() =>
     assistanceService.getAllSync(initialFilters)
   );
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedAssistancePointId, setSelectedAssistancePointId] = useState(null);
+
+  const filterKey = JSON.stringify(initialFilters);
 
   // Sync with API on mount asynchronously
   useEffect(() => {
     let isMounted = true;
-    assistanceService.getAll().then((data) => {
-      if (isMounted && Array.isArray(data) && data.length > 0) {
-        setAssistancePoints(data);
-      }
-    }).catch((err) => {
-      if (isMounted) console.warn('[useAssistancePoints] Initial API fetch warning:', err.message);
-    });
+
+    assistanceService
+      .getAll(initialFilters)
+      .then((data) => {
+        if (isMounted) {
+          setAssistancePoints(Array.isArray(data) ? data : []);
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          console.error('[useAssistancePoints] Initial API fetch failed:', err.message);
+          setError(err.message || 'Unable to connect to assistance points directory');
+          setIsLoading(false);
+        }
+      });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey]);
 
   const reloadPoints = useCallback(async (filters = {}) => {
     try {

@@ -13,8 +13,8 @@ export default function EmergencyBanner({ onOpenHotlines }) {
       <div className="fw-disclaimer-minimized">
         <div className="fw-disclaimer-content">
           <span className="fw-status-pill">
-            <span className="fw-status-dot fw-dot-amber" />
-            Hackathon Demonstration Mode — Simulated Data
+            <span className="fw-status-dot fw-dot-emerald" />
+            Live Supabase Feed &bull; Community Flood Intelligence
           </span>
           <button
             type="button"
@@ -30,15 +30,15 @@ export default function EmergencyBanner({ onOpenHotlines }) {
   }
 
   return (
-    <aside className="fw-emergency-banner" aria-label="Experimental demo advisory">
+    <aside className="fw-emergency-banner" aria-label="Community intelligence advisory">
       <div className="fw-banner-inner">
         <div className="fw-banner-lead">
-          <span className="fw-banner-badge">
-            <Icon name="info" size={14} />
-            DEMO MODE
+          <span className="fw-banner-badge" style={{ background: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.3)', color: '#10B981' }}>
+            <Icon name="activity" size={14} color="#10B981" />
+            LIVE FEED
           </span>
           <p className="fw-banner-text">
-            <strong>FloodWatch Kerala is an experimental community intelligence MVP.</strong> Incidents shown are simulated around Greater Kochi & the Periyar basin for demonstration. This does not replace official guidance from the Kerala State Disaster Management Authority (KSDMA).
+            <strong>FloodWatch Kerala is a community flood intelligence system connected to Supabase PostgreSQL.</strong> Reports are logged by citizens and monitored for Greater Kochi. This does not replace official evacuation guidance from the Kerala State Disaster Management Authority (KSDMA).
           </p>
         </div>
 

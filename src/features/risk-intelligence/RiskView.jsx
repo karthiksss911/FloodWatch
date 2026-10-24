@@ -4,7 +4,6 @@ import Card from '../../components/common/Card';
 import Badge from '../../components/common/Badge';
 import Button from '../../components/common/Button';
 import { riskService } from '../../services/riskService';
-import { INITIAL_INCIDENTS } from '../../data/demoData';
 
 const WEATHER_PRESETS = [
   { label: 'Dry Spell (0 mm/h)', value: 0 },
@@ -19,7 +18,10 @@ const WEATHER_PRESETS = [
  * evidence confidence separation, transparent formula walkthrough, and zone rankings.
  */
 export default function RiskView({
-  incidents = INITIAL_INCIDENTS,
+  incidents = [],
+  isLoading = false,
+  error = null,
+  onRetry,
   simulatedRainfall = 38.0,
   onSimulatedRainfallChange,
   decayHalfLife = 2.0,
@@ -68,6 +70,32 @@ export default function RiskView({
           </p>
         </div>
       </div>
+
+      {/* Database Connection Error Notice */}
+      {error && (
+        <div className="fw-error-banner" role="alert" style={{ marginBottom: '16px' }}>
+          <div className="fw-error-lead">
+            <Icon name="alert-triangle" size={18} color="#EF4444" />
+            <div>
+              <strong>Failed to sync database incidents for risk computation</strong>
+              <p>{error}</p>
+            </div>
+          </div>
+          {typeof onRetry === 'function' && (
+            <Button variant="outline" size="sm" icon="rotate-ccw" onClick={onRetry}>
+              Retry Connection
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Loading State */}
+      {isLoading && (
+        <div className="fw-loading-banner" role="status" style={{ textAlign: 'center', padding: '12px 0', color: '#94A3B8' }}>
+          <span className="fw-spinner" style={{ display: 'inline-block', marginRight: '8px' }} />
+          <span>Synchronizing incident reports for risk computation...</span>
+        </div>
+      )}
 
       {/* Top Regional Composite Summary Card */}
       <section className="fw-risk-hero-card" aria-label="Regional Risk Index">

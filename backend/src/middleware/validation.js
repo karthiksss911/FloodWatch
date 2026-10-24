@@ -10,13 +10,16 @@ const VALID_CATEGORIES = [
 
 const VALID_SEVERITIES = ['low', 'moderate', 'high', 'severe'];
 
-const VALID_STATUSES = ['active', 'investigating', 'resolved', 'archived'];
+const VALID_STATUSES = ['active', 'investigating', 'resolved', 'cleared', 'dismissed', 'archived'];
 
 const VALID_VERIFICATIONS = [
   'verified_official',
+  'official_verified',
   'community_confirmed',
+  'community_verified',
   'unverified',
   'rejected_spam',
+  'rejected',
   'demo_reviewed',
   'demo_community_confirmed',
   'demo_unverified',

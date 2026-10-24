@@ -6,6 +6,7 @@ import healthRouter from './routes/health.js';
 import incidentsRouter from './routes/incidents.js';
 import assistanceRouter from './routes/assistance.js';
 import riskRouter from './routes/risk.js';
+import weatherRouter from './routes/weather.js';
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use('/api/v1/health', healthRouter);
 app.use('/api/v1/incidents', incidentsRouter);
 app.use('/api/v1/assistance-points', assistanceRouter);
 app.use('/api/v1/risk', riskRouter);
+app.use('/api/v1/weather', weatherRouter);
 
 // Fallback 404 for unmatched routes
 app.use(notFoundHandler);

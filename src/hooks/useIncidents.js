@@ -7,23 +7,32 @@ import { incidentService } from '../services/incidentService.js';
  */
 export function useIncidents() {
   const [incidents, setIncidents] = useState(() => incidentService.getAllSync());
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedIncidentId, setSelectedIncidentId] = useState(() => {
-    const initial = incidentService.getAllSync();
-    return initial[0]?.id || null;
-  });
+  const [selectedIncidentId, setSelectedIncidentId] = useState(null);
 
   // Sync with API on mount asynchronously
   useEffect(() => {
     let isMounted = true;
-    incidentService.getAll().then((data) => {
-      if (isMounted && Array.isArray(data) && data.length > 0) {
-        setIncidents(data);
-      }
-    }).catch((err) => {
-      if (isMounted) console.warn('[useIncidents] Initial API fetch warning:', err.message);
-    });
+
+    incidentService
+      .getAll()
+      .then((data) => {
+        if (isMounted) {
+          setIncidents(Array.isArray(data) ? data : []);
+          if (Array.isArray(data) && data.length > 0) {
+            setSelectedIncidentId((prev) => prev || data[0].id);
+          }
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          console.error('[useIncidents] Initial API fetch failed:', err.message);
+          setError(err.message || 'Unable to connect to live incident database');
+          setIsLoading(false);
+        }
+      });
 
     return () => {
       isMounted = false;

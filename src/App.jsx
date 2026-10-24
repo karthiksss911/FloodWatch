@@ -1,43 +1,53 @@
-import { useState, useEffect } from 'react';
-import Sidebar from './components/layout/Sidebar';
-import Header from './components/layout/Header';
-import EmergencyBanner from './components/layout/EmergencyBanner';
-import HotlineModal from './components/common/HotlineModal';
-import OverviewView from './features/dashboard/OverviewView';
+import { useState } from 'react';
+import SlimNavRail from './components/layout/SlimNavRail';
+import LeftIncidentPanel from './features/dashboard/LeftIncidentPanel';
 import MapView from './features/map/MapView';
+import DashboardModal from './components/common/DashboardModal';
+import HotlineModal from './components/common/HotlineModal';
+import SettingsModal from './components/common/SettingsModal';
 import ReportView from './features/incidents/ReportView';
-import RiskView from './features/risk-intelligence/RiskView';
+import OverviewView from './features/dashboard/OverviewView';
 import AssistanceView from './features/assistance/AssistanceView';
+import RiskView from './features/risk-intelligence/RiskView';
 import AuthorityView from './features/authority/AuthorityView';
-import AtmosphericBackground from './components/layout/AtmosphericBackground';
 import { useIncidents } from './hooks/useIncidents';
 import { useAssistancePoints } from './hooks/useAssistancePoints';
 import './App.css';
 
 /**
- * FloodWatch Kerala - Application Root Shell
- * Coordinates responsive layout, client-side navigation, shared incident state via services,
- * and emergency hotline access.
+ * FloodWatch Kerala — Map-Centric Operations Dashboard
+ * Direct implementation of the Ronas IT delivery dashboard visual design reference:
+ * 1. Slim Left Navigation Rail (~68px)
+ * 2. Left Information Panel (~340px) with segmented tabs (Active, Investigating, Resolved), search, filters, and cards
+ * 3. Large Interactive Map (100% remaining space) with OpenStreetMap, markers, and floating bottom detail card.
  */
 function App() {
-  const [activeTab, setActiveTab] = useState('overview');
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [activeNav, setActiveNav] = useState('map');
+  const [reportModalOpen, setReportModalOpen] = useState(false);
   const [hotlinesModalOpen, setHotlinesModalOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [subviewModal, setSubviewModal] = useState(null); // 'overview' | 'assistance' | 'risk' | 'authority' | null
 
-  // Decoupled state management via service-backed hooks
+  // Live Supabase Incident Management
   const {
     incidents,
+    isLoading: incidentsLoading,
+    error: incidentsError,
     selectedIncidentId,
     setSelectedIncidentId,
     addIncident,
     updateIncidentStatus,
-    resetDemoIncidents,
+    refreshIncidents,
   } = useIncidents();
 
+  // Live Supabase Assistance Points & Shelters
   const {
     assistancePoints,
+    isLoading: assistanceLoading,
+    error: assistanceError,
     selectedAssistancePointId,
     setSelectedAssistancePointId,
+    refreshAssistancePoints,
   } = useAssistancePoints();
 
   // Shared Risk Intelligence simulation parameters
@@ -45,145 +55,234 @@ function App() {
   const [decayHalfLife, setDecayHalfLife] = useState(2.0); // hours
   const [rainfallMultiplier, setRainfallMultiplier] = useState(1.2);
 
-  // Close mobile navigation drawer on Escape key
-  useEffect(() => {
-    if (!mobileNavOpen) return;
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setMobileNavOpen(false);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mobileNavOpen]);
-
-  // Navigate between views and optionally focus on a specific incident or assistance point
-  const handleNavigate = (tab, targetId = null, targetType = 'incident') => {
-    setActiveTab(tab);
-    if (targetId) {
-      if (targetType === 'assistance' || (typeof targetId === 'string' && targetId.startsWith('AST-'))) {
-        setSelectedAssistancePointId(targetId);
-        setSelectedIncidentId(null);
-      } else {
-        setSelectedIncidentId(targetId);
-        setSelectedAssistancePointId(null);
-      }
+  // Handle Navigation from Rail
+  const handleNavSelect = (navId) => {
+    if (navId === 'map') {
+      setActiveNav('map');
+      setSubviewModal(null);
+    } else if (navId === 'report') {
+      setReportModalOpen(true);
+    } else if (navId === 'hotlines') {
+      setHotlinesModalOpen(true);
+    } else if (navId === 'settings') {
+      setSettingsModalOpen(true);
+    } else {
+      setActiveNav(navId);
+      setSubviewModal(navId);
     }
-    setMobileNavOpen(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleSelectIncidentFromCard = (incident) => {
+    setSelectedIncidentId(incident.id);
+    setSelectedAssistancePointId(null);
+  };
+
+  const handleIncidentSubmitted = async (newIncidentData) => {
+    try {
+      const created = await addIncident(newIncidentData);
+      setReportModalOpen(false);
+      if (created?.id) {
+        setSelectedIncidentId(created.id);
+        setSelectedAssistancePointId(null);
+      }
+    } catch (err) {
+      console.error('[App] Failed to add incident:', err);
+    }
+  };
+
+  const activeIncidentsCount = incidents.filter(
+    (i) => i.status === 'active' || (!i.status && i.severity === 'severe')
+  ).length;
+
   return (
-    <div className="fw-app-wrapper">
-      {/* Cinematic Atmospheric Background (Margins Studio / GoShuin / Mapa do Astro inspired) */}
-      <AtmosphericBackground />
+    <div className="fw-dashboard-root">
+      {/* 1. Slim Left Navigation Rail (~68px) */}
+      <SlimNavRail
+        activeNav={activeNav}
+        onSelectNav={handleNavSelect}
+        onOpenReport={() => setReportModalOpen(true)}
+        onOpenHotlines={() => setHotlinesModalOpen(true)}
+        onOpenSettings={() => setSettingsModalOpen(true)}
+        activeIncidentCount={activeIncidentsCount}
+      />
 
-      {/* Top Hackathon Demo Disclaimer Banner */}
-      <EmergencyBanner onOpenHotlines={() => setHotlinesModalOpen(true)} />
+      {/* 2. Left Information Panel: Flood Incident List (~340-360px) */}
+      <LeftIncidentPanel
+        incidents={incidents}
+        selectedIncidentId={selectedIncidentId}
+        onSelectIncident={handleSelectIncidentFromCard}
+        onOpenReport={() => setReportModalOpen(true)}
+        isLoading={incidentsLoading}
+        error={incidentsError}
+        onRetry={refreshIncidents}
+      />
 
-      <div className="fw-app-layout">
-        {/* Navigation Sidebar */}
-        <Sidebar
-          activeTab={activeTab}
-          onSelectTab={(tab) => handleNavigate(tab)}
-          isOpen={mobileNavOpen}
-          onCloseMobile={() => setMobileNavOpen(false)}
-          incidentCount={incidents.length}
-          shelterCount={assistancePoints.length}
+      {/* 3. Large Interactive Map (occupies 100% remaining space) with Floating Bottom Card */}
+      <main className="fw-map-main-viewport">
+        <MapView
+          incidents={incidents}
+          assistancePoints={assistancePoints}
+          selectedIncidentId={selectedIncidentId}
+          selectedAssistancePointId={selectedAssistancePointId}
+          onSelectIncident={(id) => {
+            setSelectedIncidentId(id);
+            setSelectedAssistancePointId(null);
+          }}
+          onSelectAssistancePoint={(id) => {
+            setSelectedAssistancePointId(id);
+            setSelectedIncidentId(null);
+          }}
+          onUpdateIncidentStatus={updateIncidentStatus}
           onOpenHotlines={() => setHotlinesModalOpen(true)}
         />
+      </main>
 
-        {/* Main Content Viewport */}
-        <div className="fw-main-viewport">
-          <Header
-            activeTab={activeTab}
-            isMobileNavOpen={mobileNavOpen}
-            onOpenMobileNav={() => setMobileNavOpen(true)}
-            onNavigateToReport={() => handleNavigate('report')}
-            onOpenHotlines={() => setHotlinesModalOpen(true)}
-          />
+      {/* ============================================================
+          Overlay Modals / Drawers for Secondary Workflows
+          ============================================================ */}
 
-          <main id="main-content" className="fw-main-content" tabIndex={-1}>
-            {activeTab === 'overview' && (
-              <OverviewView
-                incidents={incidents}
-                simulatedRainfall={simulatedRainfall}
-                rainfallMultiplier={rainfallMultiplier}
-                onNavigate={(tab, id) => handleNavigate(tab, id)}
-              />
-            )}
-            {activeTab === 'map' && (
-              <MapView
-                incidents={incidents}
-                assistancePoints={assistancePoints}
-                selectedIncidentId={selectedIncidentId}
-                selectedAssistancePointId={selectedAssistancePointId}
-                onSelectIncident={(id) => {
-                  setSelectedIncidentId(id);
-                  setSelectedAssistancePointId(null);
-                }}
-                onSelectAssistancePoint={(id) => {
-                  setSelectedAssistancePointId(id);
-                  setSelectedIncidentId(null);
-                }}
-                onNavigateToReport={() => handleNavigate('report')}
-              />
-            )}
-            {activeTab === 'report' && (
-              <ReportView
-                onIncidentSubmitted={addIncident}
-                onNavigate={(tab, id) => handleNavigate(tab, id)}
-              />
-            )}
-            {activeTab === 'risk' && (
-              <RiskView
-                incidents={incidents}
-                simulatedRainfall={simulatedRainfall}
-                onSimulatedRainfallChange={setSimulatedRainfall}
-                decayHalfLife={decayHalfLife}
-                onDecayHalfLifeChange={setDecayHalfLife}
-                rainfallMultiplier={rainfallMultiplier}
-                onRainfallMultiplierChange={setRainfallMultiplier}
-                onNavigate={(tab, id) => handleNavigate(tab, id)}
-              />
-            )}
-            {activeTab === 'assistance' && (
-              <AssistanceView
-                assistancePoints={assistancePoints}
-                onOpenHotlines={() => setHotlinesModalOpen(true)}
-                onNavigateToMap={(pointId) => handleNavigate('map', pointId, 'assistance')}
-              />
-            )}
-            {activeTab === 'authority' && (
-              <AuthorityView
-                incidents={incidents}
-                onUpdateIncidentStatus={updateIncidentStatus}
-                onNavigateToMap={(incidentId) => handleNavigate('map', incidentId, 'incident')}
-                onResetDemoData={resetDemoIncidents}
-              />
-            )}
-          </main>
+      {/* Report New Incident Modal */}
+      <DashboardModal
+        isOpen={reportModalOpen}
+        onClose={() => setReportModalOpen(false)}
+        title="Report Flood Incident"
+        subtitle="Citizen dispatch & street inundation reporting directly to Supabase"
+        icon="plus-circle"
+        maxWidth="760px"
+      >
+        <ReportView
+          onIncidentSubmitted={handleIncidentSubmitted}
+          onNavigate={(tab, id) => {
+            setReportModalOpen(false);
+            if (id) setSelectedIncidentId(id);
+          }}
+        />
+      </DashboardModal>
 
-          {/* Footer Safety Notice */}
-          <footer className="fw-app-footer">
-            <div className="fw-footer-content">
-              <span>
-                <strong>FloodWatch Kerala</strong> — Community-Powered Geospatial Flood Incident Intelligence MVP.
-              </span>
-              <span className="fw-footer-disclaimer">
-                Non-Official Hackathon Demonstration. All records and readings are simulated. For emergencies, dial <strong>112</strong> or <strong>1077</strong>.
-              </span>
-            </div>
-          </footer>
-        </div>
-      </div>
+      {/* Situation Overview Modal */}
+      <DashboardModal
+        isOpen={subviewModal === 'dashboard' || subviewModal === 'overview'}
+        onClose={() => {
+          setSubviewModal(null);
+          setActiveNav('map');
+        }}
+        title="Situation Overview & Key Indicators"
+        subtitle="Monitored Greater Kochi sectors, active hazard counts, and weather summary"
+        icon="home"
+        maxWidth="960px"
+      >
+        <OverviewView
+          incidents={incidents}
+          assistancePoints={assistancePoints}
+          isLoading={incidentsLoading || assistanceLoading}
+          error={incidentsError || assistanceError}
+          onRetry={() => {
+            refreshIncidents();
+            refreshAssistancePoints();
+          }}
+          onNavigate={(tab, id) => {
+            setSubviewModal(null);
+            setActiveNav('map');
+            if (id) setSelectedIncidentId(id);
+          }}
+        />
+      </DashboardModal>
 
-      {/* Kerala Emergency Hotlines Directory Modal */}
+      {/* Assistance Centres Directory Modal */}
+      <DashboardModal
+        isOpen={subviewModal === 'assistance'}
+        onClose={() => {
+          setSubviewModal(null);
+          setActiveNav('map');
+        }}
+        title="Assistance Points & Relief Centres"
+        subtitle="Registered emergency shelters, medical staging posts, and boat rescue depots"
+        icon="heart"
+        maxWidth="960px"
+      >
+        <AssistanceView
+          assistancePoints={assistancePoints}
+          isLoading={assistanceLoading}
+          error={assistanceError}
+          onRetry={refreshAssistancePoints}
+          onOpenHotlines={() => setHotlinesModalOpen(true)}
+          onNavigateToMap={(pointId) => {
+            setSubviewModal(null);
+            setActiveNav('map');
+            setSelectedAssistancePointId(pointId);
+            setSelectedIncidentId(null);
+          }}
+        />
+      </DashboardModal>
+
+      {/* Risk Intelligence Analytics Modal */}
+      <DashboardModal
+        isOpen={subviewModal === 'risk'}
+        onClose={() => {
+          setSubviewModal(null);
+          setActiveNav('map');
+        }}
+        title="Explainable Risk Intelligence Engine"
+        subtitle="Topographical vulnerability & rainfall accumulation simulation"
+        icon="activity"
+        maxWidth="960px"
+      >
+        <RiskView
+          incidents={incidents}
+          isLoading={incidentsLoading}
+          error={incidentsError}
+          onRetry={refreshIncidents}
+          simulatedRainfall={simulatedRainfall}
+          onSimulatedRainfallChange={setSimulatedRainfall}
+          decayHalfLife={decayHalfLife}
+          onDecayHalfLifeChange={setDecayHalfLife}
+          rainfallMultiplier={rainfallMultiplier}
+          onRainfallMultiplierChange={setRainfallMultiplier}
+          onNavigate={(tab, id) => {
+            setSubviewModal(null);
+            setActiveNav('map');
+            if (id) setSelectedIncidentId(id);
+          }}
+        />
+      </DashboardModal>
+
+      {/* Authority Operations Console Modal */}
+      <DashboardModal
+        isOpen={subviewModal === 'authority'}
+        onClose={() => {
+          setSubviewModal(null);
+          setActiveNav('map');
+        }}
+        title="Authority Incident Verification Console"
+        subtitle="Authorized operational triage and citizen report confirmation"
+        icon="shield"
+        maxWidth="960px"
+      >
+        <AuthorityView
+          incidents={incidents}
+          isLoading={incidentsLoading}
+          error={incidentsError}
+          onRetry={refreshIncidents}
+          onUpdateIncidentStatus={updateIncidentStatus}
+          onNavigateToMap={(incidentId) => {
+            setSubviewModal(null);
+            setActiveNav('map');
+            setSelectedIncidentId(incidentId);
+            setSelectedAssistancePointId(null);
+          }}
+        />
+      </DashboardModal>
+
+      {/* Kerala Emergency Hotlines Modal */}
       <HotlineModal
         isOpen={hotlinesModalOpen}
         onClose={() => setHotlinesModalOpen(false)}
+      />
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={settingsModalOpen}
+        onClose={() => setSettingsModalOpen(false)}
       />
     </div>
   );

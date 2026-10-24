@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Icon from '../common/Icon';
 import Button from '../common/Button';
+import { useWeather } from '../../hooks/useWeather';
 
 /**
  * Top App Header with breadcrumb, live Kerala time ticker (IST),
@@ -14,6 +15,7 @@ export default function Header({
   onOpenHotlines,
 }) {
   const [currentTime, setCurrentTime] = useState('');
+  const { weather } = useWeather();
 
   useEffect(() => {
     const updateIST = () => {
@@ -80,15 +82,35 @@ export default function Header({
       </div>
 
       <div className="fw-header-right">
-        {/* Clock & Demo Mode Indicator */}
-        <div className="fw-header-telemetry" title="Kerala Standard Time (IST) • Simulated Demo Environment">
+        {/* Clock, Live Weather & Live Supabase Status */}
+        <div className="fw-header-telemetry" title="Kerala Standard Time (IST) • Live Supabase PostgreSQL Feed • Open-Meteo Weather">
           <div className="fw-time-indicator">
             <Icon name="clock" size={14} />
             <span className="fw-time-text">{currentTime || 'Loading IST...'} IST</span>
           </div>
-          <div className="fw-telemetry-badge" title="Demonstration feed with simulated sensor data">
-            <span className="fw-pulse-dot fw-dot-amber" />
-            <span className="fw-telemetry-label fw-label-demo">Demo Mode Feed</span>
+          {weather?.current && (
+            <div
+              className="fw-weather-header-badge"
+              title={`Kochi Weather: ${weather.current.temperature_c ?? weather.current.temperature}°C, ${weather.current.weather_description ?? weather.current.condition} • Open-Meteo model`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '3px 8px',
+                borderRadius: '9999px',
+                background: 'rgba(56, 189, 248, 0.1)',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
+                fontSize: '11.5px',
+                color: '#E0F2FE',
+              }}
+            >
+              <Icon name="cloud-rain" size={13} color="#38BDF8" />
+              <span>{weather.current.temperature_c ?? weather.current.temperature}°C</span>
+            </div>
+          )}
+          <div className="fw-telemetry-badge" title="Live Supabase Database Connection">
+            <span className="fw-pulse-dot" style={{ backgroundColor: '#10B981', boxShadow: '0 0 8px rgba(16, 185, 129, 0.6)' }} />
+            <span className="fw-telemetry-label" style={{ color: '#10B981' }}>Live Supabase</span>
           </div>
         </div>
 

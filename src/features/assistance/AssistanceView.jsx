@@ -4,15 +4,17 @@ import Card from '../../components/common/Card';
 import Badge from '../../components/common/Badge';
 import Button from '../../components/common/Button';
 import StatCard from '../../components/common/StatCard';
-import { ASSISTANCE_POINTS as DEFAULT_POINTS } from '../../data/demoData';
 
 /**
  * FloodWatch Kerala - Assistance Points Directory (Features/Assistance)
  * Displays verified relief camps, rescue hubs, medical response stations, and sandbag depots.
- * Clearly separates simulated mock records from official Kerala Disaster Helplines (1077/1070/112).
+ * Directly fetched from connected Supabase PostgreSQL database.
  */
 export default function AssistanceView({
-  assistancePoints = DEFAULT_POINTS,
+  assistancePoints = [],
+  isLoading = false,
+  error = null,
+  onRetry,
   onOpenHotlines,
   onNavigateToMap,
 }) {
@@ -99,13 +101,13 @@ export default function AssistanceView({
           </div>
           <div>
             <div className="fw-ass-banner-tag-row">
-              <span className="fw-ass-banner-pill">SIMULATED HACKATHON DIRECTORY</span>
+              <span className="fw-ass-banner-pill">LIVE DIRECTORY</span>
               <span className="fw-ass-banner-pill fw-pill-sec">GREATER KOCHI BASIN</span>
             </div>
-            <h3 className="fw-ass-title">Assistance & Emergency Relief Directory (Demonstration Records)</h3>
+            <h3 className="fw-ass-title">Assistance & Emergency Relief Directory</h3>
             <p className="fw-ass-desc">
-              All facility records, simulated desk extensions, and bed counts below are mock data generated for emergency response modeling.
-              <strong> Never rely on simulated phone numbers during real disasters.</strong> For real-time life safety evacuation or official assistance, dial official 24x7 Kerala Emergency Helplines.
+              Database-backed directory of relief camps, rescue units, medical centres, and sandbag depots.
+              For immediate life safety or emergency evacuation, dial official 24x7 Kerala Emergency Helplines.
             </p>
           </div>
         </div>
@@ -121,6 +123,24 @@ export default function AssistanceView({
           </Button>
         </div>
       </div>
+
+      {/* Database Connection Error Notice */}
+      {error && (
+        <div className="fw-error-banner" role="alert" style={{ marginBottom: '16px' }}>
+          <div className="fw-error-lead">
+            <Icon name="alert-triangle" size={18} color="#EF4444" />
+            <div>
+              <strong>Failed to load assistance points from database</strong>
+              <p>{error}</p>
+            </div>
+          </div>
+          {typeof onRetry === 'function' && (
+            <Button variant="outline" size="sm" icon="rotate-ccw" onClick={onRetry}>
+              Retry Connection
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Directory Summary KPIs */}
       <div className="fw-assistance-kpis">
@@ -256,6 +276,14 @@ export default function AssistanceView({
         </div>
       </div>
 
+      {/* Loading Indicator */}
+      {isLoading && (
+        <div className="fw-loading-banner" role="status" style={{ textAlign: 'center', padding: '16px 0', color: '#94A3B8' }}>
+          <span className="fw-spinner" style={{ display: 'inline-block', marginRight: '8px' }} />
+          <span>Synchronizing assistance facilities from Supabase database...</span>
+        </div>
+      )}
+
       {/* Facility Grid */}
       <div className="fw-hubs-grid">
         {filteredPoints.map((hub) => {
@@ -284,7 +312,7 @@ export default function AssistanceView({
                       Operating Body: <strong>{hub.operating_authority}</strong>
                     </span>
                     <span className="fw-hub-time">
-                      Demo Audit: {new Date(hub.last_verified_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      Verified: {hub.last_verified_at ? new Date(hub.last_verified_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Logged in DB'}
                     </span>
                   </div>
 
@@ -352,7 +380,7 @@ export default function AssistanceView({
                         ? `${availableUnits} craft ready for launch`
                         : hub.category === 'logistics'
                         ? `${availableUnits} bags available`
-                        : `${availableUnits} places available in simulation`}
+                        : `${availableUnits} places available`}
                     </span>
                   </div>
                 </div>
@@ -373,11 +401,11 @@ export default function AssistanceView({
                 <div className="fw-hub-contact-card">
                   <div className="fw-contact-split">
                     <div className="fw-contact-demo-col">
-                      <span className="fw-contact-label">Simulated Facility Desk:</span>
+                      <span className="fw-contact-label">Facility Contact:</span>
                       <span className="fw-contact-phone-text">
                         <Icon name="phone" size={13} color="#94A3B8" /> {hub.contact_phone}
                       </span>
-                      <span className="fw-contact-subnote">Demo extension for training scenarios only</span>
+                      <span className="fw-contact-subnote">Registered facility desk phone</span>
                     </div>
 
                     <div className="fw-contact-official-col">

@@ -1,17 +1,14 @@
 import { supabase, isSupabaseConnected } from '../config/supabase.js';
-import { INITIAL_INCIDENTS } from '../data/seedData.js';
-
-// In-memory demo store initialized from seed
-let inMemoryIncidents = [...INITIAL_INCIDENTS];
+import { AppError } from '../middleware/errorHandler.js';
 
 /**
  * Backend Incident Service
- * Interacts with Supabase PostgreSQL when available, or transparently falls back
- * to an in-memory demo store with clear labeling.
+ * Interacts exclusively with Supabase PostgreSQL as the single source of truth.
+ * Silent mock fallbacks have been removed in favor of truthful error and empty states.
  */
 class BackendIncidentService {
   /**
-   * Retrieves incidents with filtering, text search, and pagination
+   * Retrieves real incidents with filtering, text search, and pagination from Supabase
    */
   async getIncidents({
     category,
@@ -22,125 +19,92 @@ class BackendIncidentService {
     limit = 50,
     offset = 0,
   } = {}) {
-    const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
-    const parsedOffset = Math.max(parseInt(offset, 10) || 0, 0);
-
-    if (isSupabaseConnected() && supabase) {
-      try {
-        let query = supabase
-          .from('incidents')
-          .select('*', { count: 'exact' })
-          .order('created_at', { ascending: false });
-
-        if (category && category !== 'all') {
-          query = query.eq('category', category);
-        }
-        if (severity && severity !== 'all') {
-          query = query.eq('severity', severity);
-        }
-        if (status && status !== 'all') {
-          query = query.eq('status', status);
-        }
-        if (verification_status && verification_status !== 'all') {
-          query = query.eq('verification_status', verification_status);
-        }
-        if (search && search.trim()) {
-          const q = search.trim();
-          query = query.or(`title.ilike.%${q}%,location_label.ilike.%${q}%,description.ilike.%${q}%`);
-        }
-
-        query = query.range(parsedOffset, parsedOffset + parsedLimit - 1);
-
-        const { data, count, error } = await query;
-
-        if (error) {
-          console.warn('[BackendIncidentService] Supabase query failed, falling back to demo store:', error.message);
-          return this._getInMemoryIncidents({ category, severity, status, verification_status, search, limit: parsedLimit, offset: parsedOffset });
-        }
-
-        return {
-          total: count ?? data.length,
-          limit: parsedLimit,
-          offset: parsedOffset,
-          dataSource: 'supabase',
-          isDemoMode: false,
-          data: data || [],
-        };
-      } catch (err) {
-        console.error('[BackendIncidentService] Supabase exception, fallback:', err.message);
-      }
-    }
-
-    return this._getInMemoryIncidents({ category, severity, status, verification_status, search, limit: parsedLimit, offset: parsedOffset });
-  }
-
-  _getInMemoryIncidents({ category, severity, status, verification_status, search, limit, offset }) {
-    let result = [...inMemoryIncidents];
-
-    if (category && category !== 'all') {
-      result = result.filter((i) => i.category === category);
-    }
-    if (severity && severity !== 'all') {
-      result = result.filter((i) => i.severity === severity);
-    }
-    if (status && status !== 'all') {
-      result = result.filter((i) => i.status === status);
-    }
-    if (verification_status && verification_status !== 'all') {
-      result = result.filter((i) => i.verification_status === verification_status);
-    }
-    if (search && search.trim()) {
-      const q = search.toLowerCase().trim();
-      result = result.filter((i) =>
-        i.title.toLowerCase().includes(q) ||
-        i.location_label.toLowerCase().includes(q) ||
-        (i.description || '').toLowerCase().includes(q)
+    if (!isSupabaseConnected() || !supabase) {
+      throw new AppError(
+        'Database unavailable: Supabase PostgreSQL is not connected. Please check backend configuration.',
+        503,
+        'DATABASE_UNAVAILABLE'
       );
     }
 
-    const total = result.length;
-    const paginated = result.slice(offset, offset + limit);
+    const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
+    const parsedOffset = Math.max(parseInt(offset, 10) || 0, 0);
+
+    let query = supabase
+      .from('incidents')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false });
+
+    if (category && category !== 'all') {
+      query = query.eq('category', category);
+    }
+    if (severity && severity !== 'all') {
+      query = query.eq('severity', severity);
+    }
+    if (status && status !== 'all') {
+      query = query.eq('status', status);
+    }
+    if (verification_status && verification_status !== 'all') {
+      query = query.eq('verification_status', verification_status);
+    }
+    if (search && search.trim()) {
+      const q = search.trim();
+      query = query.or(`title.ilike.%${q}%,location_label.ilike.%${q}%,description.ilike.%${q}%`);
+    }
+
+    query = query.range(parsedOffset, parsedOffset + parsedLimit - 1);
+
+    const { data, count, error } = await query;
+
+    if (error) {
+      throw new AppError(`Supabase incident query error: ${error.message}`, 500, 'DATABASE_QUERY_ERROR');
+    }
 
     return {
-      total,
-      limit,
-      offset,
-      dataSource: 'demo_seed',
-      isDemoMode: true,
-      data: paginated,
+      total: count ?? (data ? data.length : 0),
+      limit: parsedLimit,
+      offset: parsedOffset,
+      dataSource: 'supabase',
+      isDemoMode: false,
+      data: data || [],
     };
   }
 
   /**
-   * Retrieves single incident by ID
+   * Retrieves single real incident by ID from Supabase
    */
   async getIncidentById(id) {
-    if (isSupabaseConnected() && supabase) {
-      try {
-        const { data, error } = await supabase
-          .from('incidents')
-          .select('*')
-          .eq('id', id)
-          .single();
-
-        if (!error && data) {
-          return { data, dataSource: 'supabase', isDemoMode: false };
-        }
-      } catch (err) {
-        console.warn('[BackendIncidentService] Supabase getById failed:', err.message);
-      }
+    if (!isSupabaseConnected() || !supabase) {
+      throw new AppError('Database unavailable: Supabase PostgreSQL is not connected.', 503, 'DATABASE_UNAVAILABLE');
     }
 
-    const found = inMemoryIncidents.find((i) => i.id === id);
-    return found ? { data: found, dataSource: 'demo_seed', isDemoMode: true } : null;
+    const { data, error } = await supabase
+      .from('incidents')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error || !data) {
+      return null;
+    }
+
+    return { data, dataSource: 'supabase', isDemoMode: false };
   }
 
   /**
-   * Creates a new incident report with server-side validation and sanitization
+   * Creates a new real incident report in Supabase
    */
   async createIncident(payload) {
+    if (!isSupabaseConnected() || !supabase) {
+      throw new AppError(
+        'Cannot submit incident: Database is currently unavailable. Please try again later.',
+        503,
+        'DATABASE_UNAVAILABLE'
+      );
+    }
+
     const nowIso = new Date().toISOString();
-    const newId = `INC-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
+    const newId = `INC-${Date.now().toString().slice(-6)}`;
 
     const newRecord = {
       id: newId,
@@ -149,8 +113,7 @@ class BackendIncidentService {
       severity: payload.severity,
       status: 'active',
       source_type: 'community',
-      // Ensure community submissions always start unverified
-      verification_status: isSupabaseConnected() ? 'unverified' : 'demo_unverified',
+      verification_status: 'unverified',
       location_label: (payload.location_label || payload.location?.label || 'Kerala Location').trim(),
       latitude: Number(payload.latitude ?? payload.location?.lat),
       longitude: Number(payload.longitude ?? payload.location?.lng),
@@ -158,44 +121,37 @@ class BackendIncidentService {
       passable_for: (payload.passable_for || 'Unknown').trim(),
       description: (payload.description || '').trim(),
       rainfall_value: Number(payload.rainfall_value || 0),
-      rainfall_source: payload.rainfall_source || 'Community Sensor / Observed',
-      confidence_score: 65,
-      reporter_notes: payload.reporter_notes || 'Submitted via public reporting console',
-      is_demo: !isSupabaseConnected(),
+      rainfall_source: payload.rainfall_source ? payload.rainfall_source.trim() : null,
+      confidence_score: 50,
+      reporter_notes: (payload.reporter_notes || 'Citizen field report submitted via FloodWatch portal').trim(),
+      is_demo: false,
       review_history: [],
       created_at: nowIso,
       updated_at: nowIso,
       observed_at: payload.observed_at || nowIso,
     };
 
-    if (isSupabaseConnected() && supabase) {
-      try {
-        const { data, error } = await supabase
-          .from('incidents')
-          .insert([newRecord])
-          .select()
-          .single();
+    const { data, error } = await supabase
+      .from('incidents')
+      .insert([newRecord])
+      .select()
+      .single();
 
-        if (error) {
-          throw new Error(`Database error saving incident: ${error.message}`);
-        }
-
-        return { data, dataSource: 'supabase', isDemoMode: false };
-      } catch (err) {
-        console.error('[BackendIncidentService] Failed to write to Supabase:', err.message);
-        throw err; // Do not pretend data was saved if DB write failed
-      }
+    if (error) {
+      throw new AppError(`Failed to persist incident to database: ${error.message}`, 500, 'DATABASE_WRITE_ERROR');
     }
 
-    // Demo store fallback
-    inMemoryIncidents = [newRecord, ...inMemoryIncidents];
-    return { data: newRecord, dataSource: 'demo_seed', isDemoMode: true };
+    return { data, dataSource: 'supabase', isDemoMode: false };
   }
 
   /**
-   * Updates incident status and verification (Privileged Authority Action)
+   * Updates incident status and verification in Supabase with audit logging (Privileged Authority Action)
    */
   async updateIncidentStatus(id, { verification_status, status, reviewer = 'Duty Officer', notes = '' }) {
+    if (!isSupabaseConnected() || !supabase) {
+      throw new AppError('Cannot update incident: Database unavailable.', 503, 'DATABASE_UNAVAILABLE');
+    }
+
     const nowIso = new Date().toISOString();
     const historyEntry = {
       timestamp: nowIso,
@@ -204,89 +160,76 @@ class BackendIncidentService {
       notes,
     };
 
-    if (isSupabaseConnected() && supabase) {
-      try {
-        // Fetch current record
-        const { data: existing, error: fetchErr } = await supabase
-          .from('incidents')
-          .select('*')
-          .eq('id', id)
-          .single();
+    const { data: existing, error: fetchErr } = await supabase
+      .from('incidents')
+      .select('*')
+      .eq('id', id)
+      .single();
 
-        if (fetchErr || !existing) {
-          throw new Error(`Incident "${id}" not found in database.`);
-        }
-
-        const updatedHistory = [...(existing.review_history || []), historyEntry];
-
-        const { data, error } = await supabase
-          .from('incidents')
-          .update({
-            verification_status,
-            status,
-            review_history: updatedHistory,
-            updated_at: nowIso,
-          })
-          .eq('id', id)
-          .select()
-          .single();
-
-        if (error) {
-          throw new Error(`Database error updating incident: ${error.message}`);
-        }
-
-        // Insert into audit trail table
-        const { error: auditError } = await supabase.from('incident_reviews').insert([{
-          incident_id: id,
-          reviewer,
-          action: historyEntry.action,
-          previous_status: existing.status,
-          new_status: status,
-          previous_verification: existing.verification_status,
-          new_verification: verification_status,
-          notes,
-        }]);
-
-        if (auditError) {
-          console.warn('[BackendIncidentService] Audit log warning:', auditError.message);
-        }
-
-        return { data, dataSource: 'supabase', isDemoMode: false };
-      } catch (err) {
-        console.error('[BackendIncidentService] Failed to update incident in Supabase:', err.message);
-        throw err;
-      }
+    if (fetchErr || !existing) {
+      throw new AppError(`Incident "${id}" not found in database.`, 404, 'NOT_FOUND');
     }
 
-    // Demo store update
-    let updatedRecord = null;
-    inMemoryIncidents = inMemoryIncidents.map((item) => {
-      if (item.id === id) {
-        updatedRecord = {
-          ...item,
-          verification_status,
-          status,
-          updated_at: nowIso,
-          review_history: [...(item.review_history || []), historyEntry],
-        };
-        return updatedRecord;
-      }
-      return item;
-    });
+    const updatedHistory = [...(existing.review_history || []), historyEntry];
 
-    if (!updatedRecord) {
-      return null;
+    const verificationMap = {
+      official_verified: 'verified_official',
+      verified_official: 'verified_official',
+      community_verified: 'community_confirmed',
+      community_confirmed: 'community_confirmed',
+      unverified: 'unverified',
+      rejected: 'rejected_spam',
+      rejected_spam: 'rejected_spam',
+      demo_reviewed: 'demo_reviewed',
+      demo_community_confirmed: 'demo_community_confirmed',
+      demo_unverified: 'demo_unverified',
+    };
+
+    const statusMap = {
+      active: 'active',
+      investigating: 'investigating',
+      resolved: 'resolved',
+      cleared: 'resolved',
+      dismissed: 'archived',
+      archived: 'archived',
+    };
+
+    const targetVerification = verificationMap[verification_status] || verification_status;
+    const targetStatus = statusMap[status] || status;
+
+    const { data, error } = await supabase
+      .from('incidents')
+      .update({
+        verification_status: targetVerification,
+        status: targetStatus,
+        review_history: updatedHistory,
+        updated_at: nowIso,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      throw new AppError(`Failed to update incident status in database: ${error.message}`, 500, 'DATABASE_WRITE_ERROR');
     }
 
-    return { data: updatedRecord, dataSource: 'demo_seed', isDemoMode: true };
-  }
+    // Insert into audit trail table
+    const { error: auditError } = await supabase.from('incident_reviews').insert([{
+      incident_id: id,
+      reviewer,
+      action: historyEntry.action,
+      previous_status: existing.status,
+      new_status: targetStatus,
+      previous_verification: existing.verification_status,
+      new_verification: targetVerification,
+      notes,
+    }]);
 
-  /**
-   * Resets demo store to baseline dataset
-   */
-  resetDemoData() {
-    inMemoryIncidents = [...INITIAL_INCIDENTS];
-    return { data: inMemoryIncidents, dataSource: 'demo_seed', isDemoMode: true };
+    if (auditError) {
+      console.warn('[BackendIncidentService] Review audit trail insertion warning:', auditError.message);
+    }
+
+    return { data, dataSource: 'supabase', isDemoMode: false };
   }
 }
 

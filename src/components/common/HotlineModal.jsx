@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import Icon from './Icon';
 import Button from './Button';
-import { EMERGENCY_HOTLINES } from '../../data/demoData';
+import { EMERGENCY_HOTLINES } from '../../config/disasterConfig';
 
 /**
  * Accessible modal displaying verified Kerala Emergency Contacts & Disaster Helplines.

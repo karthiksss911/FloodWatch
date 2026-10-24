@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Icon from '../../components/common/Icon';
 import Card from '../../components/common/Card';
 import Badge from '../../components/common/Badge';
 import Button from '../../components/common/Button';
 import LocationPickerMap from './components/LocationPickerMap';
-import { CATEGORIES, DEMO_AREA } from '../../data/demoData';
+import { CATEGORIES } from '../../config/disasterConfig';
 import { initLeafletIcons } from '../../lib/leaflet/leafletConfig';
 
 initLeafletIcons();
@@ -52,7 +52,11 @@ export default function ReportView({ onIncidentSubmitted, onNavigate }) {
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState(null);
   const [submittedData, setSubmittedData] = useState(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState('');
+  const fileInputRef = useRef(null);
 
   // Handle location selection from interactive map
   const handleMapLocationSelect = (lat, lng) => {
@@ -90,27 +94,41 @@ export default function ReportView({ onIncidentSubmitted, onNavigate }) {
     });
   };
 
-  // Simulate GPS coordinates
-  const handleSimulateGPS = () => {
-    const offsetLat = (Math.random() - 0.5) * 0.04;
-    const offsetLng = (Math.random() - 0.5) * 0.04;
-    const newLat = (DEMO_AREA.center[0] + offsetLat).toFixed(4);
-    const newLng = (DEMO_AREA.center[1] + offsetLng).toFixed(4);
+  // Detect genuine device GPS coordinates
+  const handleDetectGPS = () => {
+    if (!navigator.geolocation) {
+      setGpsError('Geolocation is not supported by your browser.');
+      return;
+    }
+    setGpsLoading(true);
+    setGpsError('');
 
-    setFormData((prev) => ({
-      ...prev,
-      latitude: newLat,
-      longitude: newLng,
-      location_label:
-        prev.location_label ||
-        `Simulated Resident GPS near Ernakulam Corridor [${newLat}, ${newLng}]`,
-    }));
-    setErrors((prev) => {
-      const next = { ...prev };
-      delete next.latitude;
-      delete next.longitude;
-      return next;
-    });
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setFormData((prev) => ({
+          ...prev,
+          latitude: lat.toFixed(4),
+          longitude: lng.toFixed(4),
+          location_label:
+            prev.location_label ||
+            `GPS Coords [${lat.toFixed(4)}, ${lng.toFixed(4)}]`,
+        }));
+        setErrors((prev) => {
+          const next = { ...prev };
+          delete next.latitude;
+          delete next.longitude;
+          return next;
+        });
+        setGpsLoading(false);
+      },
+      (err) => {
+        setGpsError(`Unable to retrieve GPS: ${err.message}. Select on map instead.`);
+        setGpsLoading(false);
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
   };
 
   // Set observation time to current time
@@ -121,17 +139,26 @@ export default function ReportView({ onIncidentSubmitted, onNavigate }) {
     }));
   };
 
-  // Simulate photo attachment
-  const handleSimulatePhoto = () => {
-    if (formData.photo_attached) {
-      setFormData((prev) => ({ ...prev, photo_attached: false, photo_name: '' }));
-    } else {
+  // Genuine photo file selection
+  const handlePhotoSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
       setFormData((prev) => ({
         ...prev,
         photo_attached: true,
-        photo_name: `IMG_${Math.floor(1000 + Math.random() * 9000)}_field_evidence.jpg`,
+        photo_name: file.name,
       }));
     }
+  };
+
+  const handleRemovePhoto = (e) => {
+    e.stopPropagation();
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setFormData((prev) => ({
+      ...prev,
+      photo_attached: false,
+      photo_name: '',
+    }));
   };
 
   // Validation logic
@@ -186,8 +213,8 @@ export default function ReportView({ onIncidentSubmitted, onNavigate }) {
     return Object.keys(errs).length === 0;
   };
 
-  // Handle Form Submit
-  const handleSubmit = (e) => {
+  // Handle Form Submit to live Supabase backend
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) {
       window.scrollTo({ top: 100, behavior: 'smooth' });
@@ -195,45 +222,40 @@ export default function ReportView({ onIncidentSubmitted, onNavigate }) {
     }
 
     setIsSubmitting(true);
+    setSubmissionError(null);
 
-    // Simulated network dispatch
-    setTimeout(() => {
-      const newId = `INC-DEMO-${Math.floor(1000 + Math.random() * 9000)}`;
-      const submission = {
-        id: newId,
-        category: formData.category,
-        title: formData.title.trim(),
-        location_label: formData.location_label.trim(),
-        latitude: parseFloat(formData.latitude),
-        longitude: parseFloat(formData.longitude),
-        severity: formData.severity,
-        status: 'active',
-        source_type: 'community',
-        verification_status: 'demo_unverified', // Strictly unverified until reviewed
-        water_depth_cm: parseInt(formData.water_depth_cm, 10) || 25,
-        passable_for: formData.passable_for.trim() || 'Passable with caution',
-        description: `${formData.description.trim()} [Simulated Citizen Report]`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        observed_at: formData.observed_at
-          ? new Date(formData.observed_at).toISOString()
-          : new Date().toISOString(),
-        rainfall_value: 36.4,
-        rainfall_source: 'Kochi Met Unit (Simulated Demo)',
-        confidence_score: 55,
-        reporter_notes: formData.photo_attached
-          ? `Simulated photo attached: ${formData.photo_name}. Citizen field submission.`
-          : 'Submitted via citizen reporting portal.',
-        review_history: [],
-      };
+    const submissionPayload = {
+      category: formData.category,
+      title: formData.title.trim(),
+      location_label: formData.location_label.trim(),
+      latitude: parseFloat(formData.latitude),
+      longitude: parseFloat(formData.longitude),
+      severity: formData.severity,
+      water_depth_cm: parseInt(formData.water_depth_cm, 10) || 25,
+      passable_for: formData.passable_for.trim() || 'Passable with caution',
+      description: formData.description.trim(),
+      observed_at: formData.observed_at
+        ? new Date(formData.observed_at).toISOString()
+        : new Date().toISOString(),
+      rainfall_value: null,
+      rainfall_source: 'Telemetry Sensor Offline',
+      reporter_notes: formData.photo_attached
+        ? `Field evidence attached: ${formData.photo_name}. Submitted via citizen portal.`
+        : 'Submitted via citizen reporting portal.',
+    };
 
-      setSubmittedData(submission);
-      setIsSubmitting(false);
-
+    try {
       if (typeof onIncidentSubmitted === 'function') {
-        onIncidentSubmitted(submission);
+        const saved = await onIncidentSubmitted(submissionPayload);
+        setSubmittedData(saved || { ...submissionPayload, id: 'SAVED', verification_status: 'unverified' });
+      } else {
+        setSubmittedData({ ...submissionPayload, id: 'OFFLINE', verification_status: 'unverified' });
       }
-    }, 400);
+    } catch (err) {
+      setSubmissionError(err.message || 'Database error: Unable to submit incident report. Please retry.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleResetForm = () => {
@@ -272,11 +294,11 @@ export default function ReportView({ onIncidentSubmitted, onNavigate }) {
                 <div className="fw-success-icon-wrap">
                   <Icon name="check-circle" size={52} color="#10B981" />
                 </div>
-                <h3 className="fw-success-title">Report Added to Demonstration Feed</h3>
+                <h3 className="fw-success-title">Report Persisted to Live Database</h3>
                 <p className="fw-success-desc">
-                  Your incident has been published into the shared session feed and saved locally. It is
-                  currently tagged as <strong>Unverified Citizen Report (Demo)</strong> and will appear
-                  on the live map and authority triage queue immediately.
+                  Your incident has been submitted directly to the connected Supabase database. It is
+                  queued with status <strong>Unverified Citizen Report</strong> and will appear
+                  on the live map and authority verification queue immediately.
                 </p>
 
                 {/* Submitted Incident Details Summary */}
@@ -396,13 +418,19 @@ export default function ReportView({ onIncidentSubmitted, onNavigate }) {
                     <button
                       type="button"
                       className="fw-gps-btn"
-                      onClick={handleSimulateGPS}
-                      title="Simulate smartphone GPS coordinates"
+                      onClick={handleDetectGPS}
+                      disabled={gpsLoading}
+                      title="Detect device GPS coordinates"
                     >
                       <Icon name="compass" size={13} />
-                      Simulate GPS
+                      {gpsLoading ? 'Detecting GPS...' : 'Use Device GPS'}
                     </button>
                   </div>
+                  {gpsError && (
+                    <span className="fw-error-text" style={{ display: 'block', marginBottom: '8px' }}>
+                      {gpsError}
+                    </span>
+                  )}
                   <input
                     id="inc-location"
                     type="text"
@@ -604,18 +632,32 @@ export default function ReportView({ onIncidentSubmitted, onNavigate }) {
                   )}
                 </div>
 
-                {/* Photo Evidence Simulation */}
+                {/* Photo Evidence Attachment */}
                 <div className="fw-form-group">
-                  <label className="fw-form-label">Photo Evidence (Simulated Attachment)</label>
+                  <label className="fw-form-label">Photo Evidence (Optional Citizen Upload)</label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoSelect}
+                    style={{ display: 'none' }}
+                    id="inc-photo-file-input"
+                  />
                   <div
                     className={`fw-upload-dropzone ${
                       formData.photo_attached ? 'fw-upload-attached' : ''
                     }`}
-                    onClick={handleSimulatePhoto}
+                    onClick={() => {
+                      if (!formData.photo_attached && fileInputRef.current) {
+                        fileInputRef.current.click();
+                      }
+                    }}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') handleSimulatePhoto();
+                      if ((e.key === 'Enter' || e.key === ' ') && !formData.photo_attached && fileInputRef.current) {
+                        fileInputRef.current.click();
+                      }
                     }}
                   >
                     <Icon
@@ -626,14 +668,21 @@ export default function ReportView({ onIncidentSubmitted, onNavigate }) {
                     {formData.photo_attached ? (
                       <>
                         <span className="fw-attached-name">
-                          <strong>{formData.photo_name}</strong> (Simulated Attachment)
+                          <strong>{formData.photo_name}</strong> attached
                         </span>
-                        <span className="fw-upload-note">Click to remove photo</span>
+                        <button
+                          type="button"
+                          className="fw-upload-note"
+                          style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer' }}
+                          onClick={handleRemovePhoto}
+                        >
+                          Remove photo
+                        </button>
                       </>
                     ) : (
                       <>
-                        <span>Click to attach simulated field photo</span>
-                        <span className="fw-upload-note">Max 5MB • JPG, PNG (Simulated attachment)</span>
+                        <span>Click to attach photo evidence</span>
+                        <span className="fw-upload-note">Max 5MB • JPG, PNG, WebP</span>
                       </>
                     )}
                   </div>
@@ -650,11 +699,19 @@ export default function ReportView({ onIncidentSubmitted, onNavigate }) {
                     <span>
                       I certify that this report reflects genuine flood or road conditions observed
                       in the field. I understand it will be marked as an{' '}
-                      <strong>Unverified Citizen Report (Demo)</strong> until reviewed.
+                      <strong>Unverified Citizen Report</strong> until officially reviewed.
                     </span>
                   </label>
                   {errors.confirmed && <span className="fw-error-text">{errors.confirmed}</span>}
                 </div>
+
+                {/* Submission Error Banner */}
+                {submissionError && (
+                  <div className="fw-form-error-banner" role="alert" style={{ marginBottom: '16px' }}>
+                    <Icon name="alert-triangle" size={18} color="#EF4444" />
+                    <span>{submissionError}</span>
+                  </div>
+                )}
 
                 {/* Submit Action */}
                 <div className="fw-form-actions">
@@ -721,7 +778,7 @@ export default function ReportView({ onIncidentSubmitted, onNavigate }) {
               <div className="fw-step-item">
                 <Badge verification="unverified" />
                 <p>
-                  Newly submitted reports start as <em>Unverified Citizen Reports (Demo)</em> and are
+                  Newly submitted reports start as <em>Unverified Citizen Reports</em> and are
                   immediately mapped with a cautionary status.
                 </p>
               </div>

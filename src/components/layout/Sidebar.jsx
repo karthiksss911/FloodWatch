@@ -9,8 +9,8 @@ export default function Sidebar({
   onSelectTab,
   isOpen,
   onCloseMobile,
-  incidentCount = 7,
-  shelterCount = 5,
+  incidentCount = 0,
+  shelterCount = 0,
   onOpenHotlines,
 }) {
   const navItems = [
@@ -53,8 +53,8 @@ export default function Sidebar({
       id: 'authority',
       label: 'Authority Console',
       icon: 'authority',
-      badge: 'Demo Review',
-      badgeType: 'warning',
+      badge: 'Live Triage',
+      badgeType: 'active',
       description: 'Review queue & verification triage',
     },
   ];
@@ -102,10 +102,10 @@ export default function Sidebar({
         {/* Region Monitor Pill */}
         <div className="fw-region-pill">
           <div className="fw-region-indicator">
-            <span className="fw-pulse-dot fw-dot-amber" />
+            <span className="fw-pulse-dot" style={{ backgroundColor: '#10B981', boxShadow: '0 0 8px rgba(16, 185, 129, 0.5)' }} />
             <div>
-              <span className="fw-region-label">SIMULATED REGION</span>
-              <span className="fw-region-name">Greater Kochi Demo Area</span>
+              <span className="fw-region-label" style={{ color: '#10B981' }}>MONITORED BASIN</span>
+              <span className="fw-region-name">Greater Kochi & Periyar Basin</span>
             </div>
           </div>
         </div>

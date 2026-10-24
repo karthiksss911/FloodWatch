@@ -84,20 +84,14 @@ router.patch('/:id', requireAuthority, validateUpdateIncidentStatus, async (req,
 });
 
 /**
- * POST /api/v1/incidents/reset
- * Resets demo data store (safe utility for demo presentations)
+ * POST /api/v1/incidents/actions/reset-demo
+ * Disabled in live database mode to prevent accidental data overwrites
  */
-router.post('/actions/reset-demo', async (req, res, next) => {
-  try {
-    const result = backendIncidentService.resetDemoData();
-    res.status(200).json({
-      success: true,
-      message: 'Demo incidents successfully reset to baseline dataset.',
-      ...result,
-    });
-  } catch (err) {
-    next(err);
-  }
+router.post('/actions/reset-demo', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Live Supabase database mode active. Resetting mock data is disabled.',
+  });
 });
 
 export default router;

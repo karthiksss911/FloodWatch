@@ -1,4 +1,4 @@
-import { RISK_ZONES } from '../data/seedData.js';
+import { RISK_ZONES } from '../config/geography.js';
 import { backendIncidentService } from './incidentService.js';
 
 export const RISK_THRESHOLDS = {
@@ -39,16 +39,19 @@ class BackendRiskService {
   }
 
   async evaluateRisk({
-    simulatedRainfall = 35.0,
+    simulatedRainfall = null,
     rainfallMultiplier = 1.0,
     decayHalfLife = 2.0,
   } = {}) {
+    // Fetch live incidents from Supabase
     const { data: incidents } = await backendIncidentService.getIncidents({ limit: 100 });
-    const effectiveRainfall = Number(simulatedRainfall) * Number(rainfallMultiplier);
+    const hasSimulatedRain = simulatedRainfall !== null && !isNaN(Number(simulatedRainfall));
+    const effectiveRainfall = hasSimulatedRain ? Number(simulatedRainfall) * Number(rainfallMultiplier) : 0;
 
     const evaluatedZones = RISK_ZONES.map((zone) => {
       // Find incidents within zone radius
       const nearby = incidents.filter((inc) => {
+        if (typeof inc.latitude !== 'number' || typeof inc.longitude !== 'number') return false;
         const d = calculateDistanceKm(
           zone.center[0],
           zone.center[1],
@@ -76,10 +79,10 @@ class BackendRiskService {
         totalIncidentWeight += severityMultiplier * decay;
       });
 
-      // Hydro-telemetry composite score
-      const rainfallComponent = Math.min(50, (effectiveRainfall / 60) * 45);
-      const incidentComponent = Math.min(50, totalIncidentWeight * 12);
-      const rawScore = (rainfallComponent + incidentComponent) * zone.vulnerabilityWeight;
+      // Score formula: incident weight + rainfall if provided
+      const incidentComponent = Math.min(60, totalIncidentWeight * 14);
+      const rainfallComponent = hasSimulatedRain ? Math.min(40, (effectiveRainfall / 60) * 35) : 0;
+      const rawScore = (incidentComponent + rainfallComponent) * zone.vulnerabilityWeight;
       const riskScore = Math.min(100, Math.max(10, Math.round(rawScore)));
 
       return {
@@ -90,8 +93,10 @@ class BackendRiskService {
         riskScore,
         category: getRiskCategory(riskScore),
         activeIncidentCount: nearby.length,
-        effectiveRainfallMm: Math.round(effectiveRainfall * 10) / 10,
+        telemetryAvailable: false,
+        telemetryStatus: 'Live sensor telemetry feed unlinked (Data unavailable)',
         criticalWaterways: zone.criticalWaterways,
+        topographyFactor: zone.topographyFactor,
       };
     }).sort((a, b) => b.riskScore - a.riskScore);
 
@@ -99,7 +104,7 @@ class BackendRiskService {
     const top3 = evaluatedZones.slice(0, 3);
     const avgScore = top3.length
       ? Math.round(top3.reduce((acc, z) => acc + z.riskScore, 0) / top3.length)
-      : 20;
+      : 15;
 
     return {
       aggregateRisk: {
@@ -108,6 +113,8 @@ class BackendRiskService {
         topZone: evaluatedZones[0] || null,
         totalActiveIncidents: incidents.filter((i) => i.status === 'active').length,
         evaluatedAt: new Date().toISOString(),
+        telemetryStatus: 'Data unavailable (Sensor network unlinked)',
+        disclaimer: 'Experimental calculation for situational awareness based on active community-reported database incidents. Not an official emergency warning.',
       },
       zones: evaluatedZones,
     };

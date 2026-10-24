@@ -11,7 +11,6 @@
  * data uncertainty, NOT confirmed safe passage.
  */
 
-import { RAINFALL_STATIONS } from '../data/demoData.js';
 
 // Standard Greater Kochi Sub-Basins
 export const RISK_ZONES = [
@@ -212,16 +211,12 @@ export function evaluateZoneRisk({
   const { independentClusters, duplicateCount } = deduplicateReports(zoneIncidents);
 
   // 3. Resolve active rainfall input
-  let effectiveRainfall;
-  let stationName;
+  let effectiveRainfall = 0;
+  let stationName = 'Telemetry Offline (Data Unavailable)';
 
-  if (simulatedGlobalRainfall !== null && simulatedGlobalRainfall !== undefined) {
+  if (simulatedGlobalRainfall !== null && simulatedGlobalRainfall !== undefined && !isNaN(Number(simulatedGlobalRainfall))) {
     effectiveRainfall = Number(simulatedGlobalRainfall);
-    stationName = 'Simulated Weather Radar Control';
-  } else {
-    const station = RAINFALL_STATIONS.find((s) => s.id === zone.associatedStationId) || RAINFALL_STATIONS[0];
-    effectiveRainfall = station ? station.current_mm_hr : 30.0;
-    stationName = station ? station.station_name : 'Regional Station (Demo)';
+    stationName = 'Simulated Calibration Input';
   }
 
   const amplifiedRainfall = effectiveRainfall * Math.max(0.5, Math.min(3.0, rainfallMultiplier));
@@ -234,7 +229,11 @@ export function evaluateZoneRisk({
 
   independentClusters.forEach((cluster) => {
     const primary = cluster.primary;
-    if (primary.verification_status === 'demo_reviewed' || primary.verification_status === 'demo_community_confirmed') {
+    if (
+      primary.verification_status === 'verified_official' ||
+      primary.verification_status === 'community_confirmed' ||
+      primary.verification_status === 'demo_reviewed'
+    ) {
       verifiedCount++;
     }
 

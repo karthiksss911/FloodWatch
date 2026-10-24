@@ -1,8 +1,9 @@
-import { ASSISTANCE_POINTS } from '../data/demoData.js';
-
 /**
- * Interface definition for Assistance Points Data Adapters.
+ * Assistance Points Service with REST API Adapter
+ * Connects frontend directly to /api/v1/assistance-points backed by Supabase PostgreSQL.
+ * Mock data fallbacks have been removed so the UI accurately displays real data or errors.
  */
+
 export class BaseAssistanceAdapter {
   async getAll() {
     throw new Error('getAll() must be implemented by adapter');
@@ -16,118 +17,67 @@ export class BaseAssistanceAdapter {
 }
 
 /**
- * Local Demonstration Adapter for Assistance Points
- */
-export class LocalAssistanceAdapter extends BaseAssistanceAdapter {
-  constructor(initialData = ASSISTANCE_POINTS) {
-    super();
-    this.data = initialData;
-  }
-
-  getAllSync(filters = {}) {
-    return this._filterData(filters);
-  }
-
-  async getAll(filters = {}) {
-    return this._filterData(filters);
-  }
-
-  _filterData(filters = {}) {
-    let result = [...this.data];
-
-    if (filters.category && filters.category !== 'all') {
-      result = result.filter((p) => p.category === filters.category);
-    }
-
-    if (filters.status && filters.status !== 'all') {
-      result = result.filter((p) => p.status === filters.status);
-    }
-
-    if (filters.accessibleOnly) {
-      result = result.filter((p) => p.wheelchair_accessible === true);
-    }
-
-    if (filters.query && filters.query.trim()) {
-      const q = filters.query.toLowerCase().trim();
-      result = result.filter((p) => {
-        return (
-          p.name.toLowerCase().includes(q) ||
-          p.location_label.toLowerCase().includes(q) ||
-          p.category_label.toLowerCase().includes(q) ||
-          (p.operating_authority || '').toLowerCase().includes(q)
-        );
-      });
-    }
-
-    return result;
-  }
-
-  async getById(id) {
-    return this.data.find((p) => p.id === id) || null;
-  }
-
-  async getCategories() {
-    const categoriesMap = new Map();
-    this.data.forEach((p) => {
-      if (!categoriesMap.has(p.category)) {
-        categoriesMap.set(p.category, { id: p.category, label: p.category_label });
-      }
-    });
-    return Array.from(categoriesMap.values());
-  }
-}
-
-/**
  * REST API Adapter for Assistance Points
- * Connects frontend to http://localhost:5000/api/v1/assistance-points
  */
 export class ApiAssistanceAdapter extends BaseAssistanceAdapter {
-  constructor(baseUrl = 'http://localhost:5000/api/v1', fallbackAdapter = new LocalAssistanceAdapter()) {
+  constructor(baseUrl = 'http://localhost:5000/api/v1') {
     super();
     this.baseUrl = baseUrl;
-    this.fallbackAdapter = fallbackAdapter;
   }
 
-  getAllSync(filters = {}) {
-    return this.fallbackAdapter.getAllSync(filters);
+  getAllSync() {
+    return [];
   }
 
   async getAll(filters = {}) {
-    try {
-      const queryParams = new URLSearchParams();
-      if (filters.category && filters.category !== 'all') queryParams.append('category', filters.category);
-      if (filters.status && filters.status !== 'all') queryParams.append('status', filters.status);
-      if (filters.accessibleOnly) queryParams.append('wheelchair_accessible', 'true');
-      if (filters.query) queryParams.append('query', filters.query);
+    const queryParams = new URLSearchParams();
+    if (filters.category && filters.category !== 'all') queryParams.append('category', filters.category);
+    if (filters.status && filters.status !== 'all') queryParams.append('status', filters.status);
+    if (filters.accessibleOnly) queryParams.append('wheelchair_accessible', 'true');
+    if (filters.query) queryParams.append('query', filters.query);
 
-      const url = `${this.baseUrl}/assistance-points${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const body = await res.json();
-      if (body.success && Array.isArray(body.data)) {
-        return body.data;
-      }
-    } catch (err) {
-      console.warn('[ApiAssistanceAdapter] API fetch failed, fallback to local store:', err.message);
+    const url = `${this.baseUrl}/assistance-points${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error?.message || `Failed to fetch assistance points (HTTP ${res.status})`);
     }
-    return this.fallbackAdapter.getAll(filters);
+    const body = await res.json();
+    if (body.success && Array.isArray(body.data)) {
+      return body.data;
+    }
+    throw new Error('Invalid assistance data format received from server');
   }
 
   async getById(id) {
-    try {
-      const res = await fetch(`${this.baseUrl}/assistance-points/${encodeURIComponent(id)}`);
-      if (res.ok) {
-        const body = await res.json();
-        if (body.success && body.data) return body.data;
-      }
-    } catch (err) {
-      console.warn('[ApiAssistanceAdapter] API getById failed:', err.message);
+    const res = await fetch(`${this.baseUrl}/assistance-points/${encodeURIComponent(id)}`);
+    if (!res.ok) {
+      if (res.status === 404) return null;
+      throw new Error(`Failed to fetch assistance point ${id} (HTTP ${res.status})`);
     }
-    return this.fallbackAdapter.getById(id);
+    const body = await res.json();
+    if (body.success && body.data) return body.data;
+    return null;
   }
 
   async getCategories() {
-    return this.fallbackAdapter.getCategories();
+    try {
+      const points = await this.getAll();
+      const categoriesMap = new Map();
+      points.forEach((p) => {
+        if (!categoriesMap.has(p.category)) {
+          categoriesMap.set(p.category, { id: p.category, label: p.category_label || p.category });
+        }
+      });
+      return Array.from(categoriesMap.values());
+    } catch {
+      return [
+        { id: 'shelter', label: 'Relief & Transit Camps' },
+        { id: 'medical', label: 'Medical & Triage Posts' },
+        { id: 'rescue_hub', label: 'Rescue Boat & Staging Hubs' },
+        { id: 'supply_depot', label: 'Emergency Nutrition Depots' },
+      ];
+    }
   }
 }
 
@@ -143,10 +93,10 @@ class AssistanceService {
     this.adapter = newAdapter;
   }
 
-  getAllSync(filters) {
+  getAllSync() {
     return typeof this.adapter.getAllSync === 'function'
-      ? this.adapter.getAllSync(filters)
-      : ASSISTANCE_POINTS;
+      ? this.adapter.getAllSync()
+      : [];
   }
 
   async getAll(filters) {
